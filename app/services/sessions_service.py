@@ -1,5 +1,7 @@
-import io
+import base64
 import os
+import shutil
+
 import cv2
 import mediapipe as mp
 from fastapi import UploadFile, File
@@ -14,6 +16,12 @@ from starlette.responses import StreamingResponse
 
 class SessionService:
     def classify_image(self, file: UploadFile = File(...)):
+        current_directory = os.getcwd()
+        file_path = os.path.join(current_directory, "app/services/image.jpg")
+
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
         base_options = python.BaseOptions(model_asset_path='./face_landmarker_v2_with_blendshapes.task')
         options = vision.FaceLandmarkerOptions(base_options=base_options,
                                                output_face_blendshapes=True,
@@ -21,21 +29,17 @@ class SessionService:
                                                num_faces=1)
         detector = vision.FaceLandmarker.create_from_options(options)
 
-        image = mp.Image.create_from_file(os.path.join(os.getcwd(),"app/services/image.jpg"))
+        image = mp.Image.create_from_file(file_path)
 
         detection_result = detector.detect(image)
         annotated_image = self.draw_landmarks_on_image(image.numpy_view(), detection_result)
         image_bgr = cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR)
 
-        # cv2.imshow("Annotated Image", image_bgr)
-        # cv2.waitKey(0)  # 0 significa esperar indefinidamente
-        # cv2.destroyAllWindows()
-        # plot_face_blendshapes_bar_graph(detection_result.face_blendshapes[0])
-
         _, encoded_image = cv2.imencode('.jpg', image_bgr)
-        image_bytes = io.BytesIO(encoded_image.tobytes())
 
-        return StreamingResponse(image_bytes, media_type="image/jpeg")
+        image_base64 = "data:image/jpeg;base64," + base64.b64encode(encoded_image).decode('utf-8')
+
+        return {"image_base64": image_base64}
 
     def draw_landmarks_on_image(self, rgb_image, detection_result):
         face_landmarks_list = detection_result.face_landmarks
