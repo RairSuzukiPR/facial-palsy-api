@@ -1,0 +1,5 @@
+pydantic~=2.9.2
+fastapi~=0.115.5
+mediapipe~=0.10.18
+numpy~=1.26.4
+matplotlib~=3.9.2

@@ -1,0 +1,9 @@
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+POST USER
+GET USER
+POST /CLASSIFY-IMG (each iteration of session)
+GET /sessions (get all sessions, resume page)
+GET /sessions/ID (get sessions, session result)
+GET /RECORS (get all statistics)
+
