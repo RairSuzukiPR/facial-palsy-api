@@ -1,7 +1,7 @@
 import mysql
 from fastapi import APIRouter, Depends, HTTPException
 from app.api.deps import get_db_connection
-from app.core.security import create_access_token
+from app.core.security import create_access_token, verify_token
 
 from app.db.models.User import UserCreate, UserResponse
 from app.services.users_service import UsersService
@@ -9,7 +9,7 @@ from app.services.users_service import UsersService
 router = APIRouter()
 
 @router.get("/")
-async def get_users(db: mysql.connector.MySQLConnection = Depends(get_db_connection)):
+async def get_users(db: mysql.connector.MySQLConnection = Depends(get_db_connection), token: str = Depends(verify_token)):
     try:
         users_service = UsersService(db)
 
