@@ -11,11 +11,10 @@ from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 import numpy as np
 import matplotlib.pyplot as plt
-from starlette.responses import StreamingResponse
 
 
 class SessionService:
-    def classify_image(self, file: UploadFile = File(...)):
+    def classify_image(self, file: UploadFile = File(...), facialExpression: str = File(...)):
         current_directory = os.getcwd()
         file_path = os.path.join(current_directory, "app/services/image.jpg")
 
@@ -39,7 +38,7 @@ class SessionService:
 
         image_base64 = "data:image/jpeg;base64," + base64.b64encode(encoded_image).decode('utf-8')
 
-        return {"image_base64": image_base64}
+        return {"imageWithPoints": image_base64}
 
     def draw_landmarks_on_image(self, rgb_image, detection_result):
         face_landmarks_list = detection_result.face_landmarks
@@ -100,4 +99,3 @@ class SessionService:
         ax.set_title("Face Blendshapes")
         plt.tight_layout()
         plt.show()
-
