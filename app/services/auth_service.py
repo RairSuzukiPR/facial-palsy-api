@@ -4,7 +4,7 @@ import mysql
 from app.db.models import User
 
 
-class UsersService:
+class AuthService:
     def __init__(self, db_connection: mysql.connector.MySQLConnection):
         self.connection = db_connection
 
