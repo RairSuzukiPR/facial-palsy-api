@@ -62,8 +62,8 @@ class ImagesService:
         try:
             cursor.execute(
                 """
-                INSERT INTO photos (photo_id, session_id, photo_url, facial_expression, with_points)
-                VALUES (%s, %s, %s, %s)
+                    INSERT INTO photos (photo_id, session_id, photo_url, facial_expression, with_points)
+                    VALUES (%s, %s, %s, %s, %s)
                 """,
                 (image_id, session_id, image_url, facial_expression, with_points)
             )
@@ -73,7 +73,6 @@ class ImagesService:
             raise e
         finally:
             cursor.close()
-        pass
 
     def _draw_landmarks_on_image(self, rgb_image, detection_result):
         face_landmarks_list = detection_result.face_landmarks
