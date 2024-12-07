@@ -1,9 +1,69 @@
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-POST USER
-GET USER
-POST /CLASSIFY-IMG (each iteration of session)
-GET /sessions (get all sessions, resume page)
-GET /sessions/ID (get sessions, session result)
-GET /RECORS (get all statistics)
+POST user - register
+POST user - login
 
+POST /sessions/new_session - new session
+    IN: {
+        "user_id": 1
+    }
+    OUT: {
+        "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    } | {
+        "error": "some error"
+    }
+GET /sessions/{session_id} - session status
+    IN: /{session_id}
+    OUT: {
+        "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "status": "pending",
+    } | {
+        "error": "some error"
+    }
+POST /sessions/process - process session
+    IN: {
+        "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    }
+    OUT: {
+        "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "house_brackmann": "IV",
+        "sunnybrook": "20",
+        "photos": [],
+        "photos_with_poitns": [],
+    } | {
+        "error": "some error"
+    }
+GET /sessions/session/${session_id} - process session
+    IN: /{session_id}
+    OUT: {
+        "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "house_brackmann": "IV",
+        "sunnybrook": "20"
+        "photos": [],
+        "photos_with_poitns": [],
+    } | {
+        "error": "some error"
+    }
+GET /sessions/users/{user_id} - all users sessions
+    IN: {user_id}
+    OUT: [
+        {
+            "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "house_brackmann": "IV",
+            "sunnybrook": "20",
+            "photos": [],
+            "photos_with_poitns": [],
+        }
+    ] | {
+        "error": "some error"
+    }
+
+POST image - validate image
+    IN: {
+        "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "facial_expression": "smiling",
+        "image": "123123-123123-123123-12314",
+    }
+    OUT: null | {
+        "error": "imagem invalida"
+    }

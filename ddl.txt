@@ -1,0 +1,38 @@
+CREATE TABLE `users` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) DEFAULT NULL,
+  `last_name` varchar(255) DEFAULT NULL,
+  `email` varchar(255) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_login` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`)
+);
+
+CREATE TABLE sessions (
+    session_id CHAR(36) PRIMARY KEY,
+    user_id INT NOT NULL,
+    status ENUM('created', 'pending', 'completed', 'processed') NOT NULL DEFAULT 'created',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_sessions_users FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE photos (
+    photo_id CHAR(36) PRIMARY KEY,
+    session_id CHAR(36) NOT NULL,
+    photo_url TEXT NOT NULL,
+    facial_expression TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_photos_sessions FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+);
+
+CREATE TABLE results (
+    result_id CHAR(36) PRIMARY KEY,
+    session_id CHAR(36) NOT NULL,
+    house_brackmann TEXT NOT NULL,
+    sunnybrook TEXT NOT NULL,
+    processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_results_sessions FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+);
