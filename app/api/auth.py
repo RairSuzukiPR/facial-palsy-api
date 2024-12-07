@@ -20,6 +20,7 @@ async def login(user: UserLogin, db: mysql.connector.MySQLConnection = Depends(g
     token = create_access_token(data={"sub": db_user.get('name') + db_user.get('last_name')})
 
     return UserResponse(
+        id=db_user.get('id'),
         name=db_user.get('name'),
         last_name=db_user.get('last_name'),
         email=db_user.get('email'),
