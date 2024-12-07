@@ -18,7 +18,15 @@ async def login(user: UserLogin, db: mysql.connector.MySQLConnection = Depends(g
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_access_token(data={"sub": db_user.get('name') + db_user.get('last_name')})
-    return {"access_token": token}
+
+    return UserResponse(
+        name=db_user.get('name'),
+        last_name=db_user.get('last_name'),
+        email=db_user.get('email'),
+        token=token,
+        message="Login realizado!"
+    )
+
 
 @router.post("/register", response_model=UserResponse)
 async def create_new_user(user: UserCreate, db: mysql.connector.MySQLConnection = Depends(get_db_connection)):

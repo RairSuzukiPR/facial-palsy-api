@@ -17,7 +17,7 @@ class AuthService:
 
     def get_user_by_email(self, email: str):
         cursor = self.connection.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM users WHERE users.email = %s", (email,))
+        cursor.execute("SELECT name, last_name, email, password_hash FROM users WHERE users.email = %s", (email,))
         result = cursor.fetchone()
         cursor.close()
         return result
