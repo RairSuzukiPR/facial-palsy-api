@@ -24,6 +24,7 @@ CREATE TABLE photos (
     session_id CHAR(36) NOT NULL,
     photo_url TEXT NOT NULL,
     facial_expression TEXT NOT NULL,
+    with_points BOOL NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_photos_sessions FOREIGN KEY (session_id) REFERENCES sessions(session_id)
 );
