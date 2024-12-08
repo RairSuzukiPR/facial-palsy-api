@@ -19,8 +19,8 @@ class ImagesService:
         self.connection = db_connection
 
     def classify_image(self, file: UploadFile = File(...)):
-        image_uuid = uuid.uuid4()
-        image_with_points_uuid = uuid.uuid4()
+        image_uuid = str(uuid.uuid4())
+        image_with_points_uuid = str(uuid.uuid4())
 
         current_directory = os.getcwd()
         file_path = os.path.join(current_directory, f"app/assets/${image_uuid}.jpg")
