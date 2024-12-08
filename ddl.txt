@@ -11,17 +11,18 @@ CREATE TABLE `users` (
 );
 
 CREATE TABLE sessions (
-    session_id CHAR(36) PRIMARY KEY,
+    session_id int NOT NULL AUTO_INCREMENT,
     user_id INT NOT NULL,
     status ENUM('created', 'pending', 'completed', 'processed') NOT NULL DEFAULT 'created',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`session_id`),
     CONSTRAINT fk_sessions_users FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
 CREATE TABLE photos (
     photo_id CHAR(36) PRIMARY KEY,
-    session_id CHAR(36) NOT NULL,
+    session_id INT NOT NULL,
     photo_url TEXT NOT NULL,
     facial_expression TEXT NOT NULL,
     with_points BOOL NOT NULL,
@@ -31,7 +32,7 @@ CREATE TABLE photos (
 
 CREATE TABLE results (
     result_id CHAR(36) PRIMARY KEY,
-    session_id CHAR(36) NOT NULL,
+    session_id INT NOT NULL,
     house_brackmann TEXT NOT NULL,
     sunnybrook TEXT NOT NULL,
     processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
