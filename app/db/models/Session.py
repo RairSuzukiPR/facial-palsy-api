@@ -9,7 +9,7 @@ class ProcessSessionPayload(BaseModel):
 
 class SessionResult(BaseModel):
     session_id: int
-    house_brackmann: Literal['I', 'II', 'III', 'IV', 'V']
+    house_brackmann: Literal['Grau I (Normal)', 'Grau II (Paralisia Leve)', 'Grau III (Paralisia Moderada)', 'Grau IV (Paralisia Moderada-Severa)', 'Grau V (Paralisia Severa)', 'Grau VI (Paralisia Total)']
     sunnybrook: int
     photos: List[str]
     photos_with_poitns: List[str]

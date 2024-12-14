@@ -1,6 +1,6 @@
 import math
 import os
-from typing import Tuple, Union
+from typing import Tuple, Union, Literal
 import mediapipe as mp
 import mysql
 
@@ -10,9 +10,12 @@ from app.services.images_service import get_face_landmarks_detection
 
 class SessionService:
     def __init__(self, db_connection: mysql.connector.MySQLConnection):
-        self.right_eyebrow_pts = [70, 63, 105, 66, 107, 46, 53, 52, 65, 55]
-        self.left_eyebrow_pts = [336, 296, 334, 293, 300, 285, 295, 282, 283, 276]
         self.connection = db_connection
+        self.right_eyebrow_pts = [70, 63, 105, 66, 107, 46, 53, 52, 65, 55]
+        self.left_eyebrow_pts = [300, 293, 334, 296, 336, 276, 283, 282, 295, 285]
+        self.right_mouth_end_pt = 61
+        self.left_mouth_end_pt = 291
+        self.paralised_side = None
 
     def new_session(self, user_id: int):
         cursor = self.connection.cursor()
@@ -70,18 +73,73 @@ class SessionService:
         return result
 
     def get_house_brackmann_classif(self, results_by_expression):
-        # TODO filtrar aq exp necessarias pra house b
-        higher_eyebrow_point_left = self.get_eyebrow_higher_pt(
+        higher_distance_eyebrow_point_left = self.get_eyebrow_higher_pt_distance(
             [item for item in results_by_expression if any(key in ['Repouso', 'Enrugar testa'] for key in item)], 'left')
-        higher_eyebrow_point_right = self.get_eyebrow_higher_pt(
+        higher_distance_eyebrow_point_right = self.get_eyebrow_higher_pt_distance(
             [item for item in results_by_expression if any(key in ['Repouso', 'Enrugar testa'] for key in item)], 'right')
 
-        print(higher_eyebrow_point_left)
-        print(higher_eyebrow_point_right)
-        return 'IV'
+        left_higher_eyebrow_pt, left_variation_eyebrow_distance = higher_distance_eyebrow_point_left
+        right_higher_eyebrow_pt, right_variation_eyebrow_distance = higher_distance_eyebrow_point_right
+        self.paralised_side = 'left' if left_variation_eyebrow_distance < right_variation_eyebrow_distance else 'right'
 
-    def get_eyebrow_higher_pt(self, expression_results, side):
+
+        eyebrow_proportion = (
+                                 left_variation_eyebrow_distance if self.paralised_side == 'left' else right_variation_eyebrow_distance) / (
+                                 right_variation_eyebrow_distance if self.paralised_side == 'left' else left_variation_eyebrow_distance)
+
+        eyebrow_score = self.calculate_HB_proportion_score(eyebrow_proportion)
+
+
+        higher_distance_mouth_point_left = self.get_mouth_higher_pt_distance(
+            [item for item in results_by_expression if any(key in ['Repouso', 'Sorrir'] for key in item)], 'left')
+        higher_distance_mouth_point_right = self.get_mouth_higher_pt_distance(
+            [item for item in results_by_expression if any(key in ['Repouso', 'Sorrir'] for key in item)], 'right')
+        left_higher_mouth_pt, left_variation_mouth_distance = higher_distance_mouth_point_left
+        right_higher_mouth_pt, right_variation_mouth_distance = higher_distance_mouth_point_right
+
+        mouth_proportion = (
+                                 left_variation_mouth_distance if self.paralised_side == 'left' else right_variation_mouth_distance) / (
+                                 right_variation_mouth_distance if self.paralised_side == 'left' else left_variation_mouth_distance)
+
+        mouth_score = self.calculate_HB_proportion_score(mouth_proportion)
+
+        return self.calculate_HB_total_score(eyebrow_score + mouth_score)
+
+    def calculate_HB_proportion_score(self, proportion: float) -> int:
+        if proportion <= 0.25:
+            return 0
+        elif proportion <= 0.50:
+            return 1
+        elif proportion <= 0.75:
+            return 2
+        elif proportion <= 0.89:
+            return 3
+        elif proportion <= 1.00:
+            return 4
+        else:
+            raise ValueError("Error calculating proportion")
+
+    def calculate_HB_total_score(self, total_score: int) -> str:
+        if not (0 <= total_score <= 8):
+            raise ValueError("Error calculating total score")
+
+        if total_score <= 1:
+            return "Grau VI (Paralisia Total)"
+        elif total_score <= 3:
+            return "Grau V (Paralisia Severa)"
+        elif total_score <= 5:
+            return "Grau IV (Paralisia Moderada-Severa)"
+        elif total_score == 6:
+            return "Grau III (Paralisia Moderada)"
+        elif total_score == 7:
+            return "Grau II (Paralisia Leve)"
+        else:
+            return "Grau I (Normal)"
+
+    def get_eyebrow_higher_pt_distance(self, expression_results, side):
         pts = []
+        max_distance = 0
+        max_point = None
 
         for item in expression_results:
             for facial_expression, data in item.items():
@@ -89,23 +147,45 @@ class SessionService:
                     facial_expression: self._get_eyebrow_px_pts(mp.Image.create_from_file(data.get('file_path')), data.get('result'), side)
                 })
 
-        return self.find_max_variation_pt(pts)
-
-    def find_max_variation_pt(self, data):
-        repouso_points = data[0]['Repouso']
-        enrugar_testa_points = data[1]['Enrugar testa']
+        repouso_points = pts[0]['Repouso']
+        enrugar_testa_points = pts[1]['Enrugar testa']
 
         min_length = min(len(repouso_points), len(enrugar_testa_points))
-
-        max_distance = 0
-        max_point = None
 
         for i in range(min_length):
             key1, coord1 = list(repouso_points[i].items())[0]
             key2, coord2 = list(enrugar_testa_points[i].items())[0]
 
             if key1 == key2:
-                distance = self._euclidean_distance_pixels(coord1, coord2)
+                distance = self._calculate_distance_pixels(coord1, coord2)
+                if distance > max_distance:
+                    max_distance = distance
+                    max_point = key1
+
+        return max_point, max_distance
+
+    def get_mouth_higher_pt_distance(self, expression_results, side):
+        pts = []
+        max_distance = 0
+        max_point = None
+
+        for item in expression_results:
+            for facial_expression, data in item.items():
+                pts.append({
+                    facial_expression: self._get_mouth_px_pts(mp.Image.create_from_file(data.get('file_path')), data.get('result'), side)
+                })
+
+        repouso_points = pts[0]['Repouso']
+        sorrir_points = pts[1]['Sorrir']
+
+        min_length = min(len(repouso_points), len(sorrir_points))
+
+        for i in range(min_length):
+            key1, coord1 = list(repouso_points[i].items())[0]
+            key2, coord2 = list(sorrir_points[i].items())[0]
+
+            if key1 == key2:
+                distance = self._calculate_distance_pixels(coord1, coord2)
                 if distance > max_distance:
                     max_distance = distance
                     max_point = key1
@@ -130,7 +210,12 @@ class SessionService:
         return x_px, y_px
 
     def _get_eyebrow_px_pts(self, image, detection_result, side):
-        facelandmark_pts = self.right_eyebrow_pts if side == 'right' else self.left_eyebrow_pts
+        return self.get_px_pts_from_detection_result(self.right_eyebrow_pts if side == 'right' else self.left_eyebrow_pts, image, detection_result)
+
+    def _get_mouth_px_pts(self, image, detection_result, side):
+        return self.get_px_pts_from_detection_result([self.right_mouth_end_pt] if side == 'right' else [self.left_mouth_end_pt], image, detection_result)
+
+    def get_px_pts_from_detection_result(self, facelandmark_pts, image, detection_result):
         pts = []
         image_rows, image_cols, _ = image.numpy_view().shape
 
@@ -141,5 +226,15 @@ class SessionService:
                 })
         return pts
 
-    def _euclidean_distance_pixels(self, p1, p2):
-        return math.sqrt((p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2)
+    def _calculate_distance_pixels(self, pt1, pt2, type: Literal["euclidian", "horizontal", "vertical"] = "euclidian") -> float:
+        x1, y1 = pt1
+        x2, y2 = pt2
+
+        if type == "horizontal":
+            return abs(x2 - x1)
+        elif type == "vertical":
+            return abs(y2 - y1)
+        elif type == "euclidian":
+            return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        else:
+            raise ValueError("Invalid distance type")
