@@ -1,5 +1,5 @@
 import mysql
-from fastapi import APIRouter, File, UploadFile, Depends
+from fastapi import APIRouter, File, UploadFile, Depends, HTTPException
 
 from app.api.deps import get_db_connection
 from app.core.security import verify_token
@@ -20,4 +20,4 @@ async def upload_image(file: UploadFile = File(...), facial_expression: str = Fi
 
         return
     except Exception as e:
-        return {"error": str(e)}, 400
+        raise HTTPException(status_code=400, detail=str(e))
