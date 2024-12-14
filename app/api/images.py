@@ -16,7 +16,7 @@ async def upload_image(file: UploadFile = File(...), facial_expression: str = Fi
         result = images_service.classify_image(file)
 
         images_service.insert_images_db(result["image"], session_id, 'img_url?', facial_expression, False)
-        images_service.insert_images_db(result["image_with_points"], session_id, 'img_url?', facial_expression, True)
+        # images_service.insert_images_db(result["image_with_points"], session_id, 'img_url?', facial_expression, True)
 
         return
     except Exception as e:

@@ -14,47 +14,39 @@ import numpy as np
 import uuid
 
 
+def get_face_landmarks_detection(file_path):
+    base_options = python.BaseOptions(model_asset_path='./face_landmarker_v2_with_blendshapes.task')
+    options = vision.FaceLandmarkerOptions(base_options=base_options,
+                                           output_face_blendshapes=True,
+                                           output_facial_transformation_matrixes=True,
+                                           num_faces=1)
+    detector = vision.FaceLandmarker.create_from_options(options)
+
+    image = mp.Image.create_from_file(file_path)
+
+    return detector.detect(image)
+
+
 class ImagesService:
     def __init__(self, db_connection: mysql.connector.MySQLConnection):
         self.connection = db_connection
 
     def classify_image(self, file: UploadFile = File(...)):
         image_uuid = str(uuid.uuid4())
-        image_with_points_uuid = str(uuid.uuid4())
 
         current_directory = os.getcwd()
-        file_path = os.path.join(current_directory, f"app/assets/${image_uuid}.jpg")
-
+        file_path = os.path.join(current_directory, f"app/assets/{image_uuid}.jpg")
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        base_options = python.BaseOptions(model_asset_path='./face_landmarker_v2_with_blendshapes.task')
-        options = vision.FaceLandmarkerOptions(base_options=base_options,
-                                               output_face_blendshapes=True,
-                                               output_facial_transformation_matrixes=True,
-                                               num_faces=1)
-        detector = vision.FaceLandmarker.create_from_options(options)
-
-        image = mp.Image.create_from_file(file_path)
-
-        detection_result = detector.detect(image)
-        annotated_image = self._draw_landmarks_on_image(image.numpy_view(), detection_result)
-        image_bgr = cv2.cvtColor(annotated_image, cv2.COLOR_RGB2BGR)
-
-        _, encoded_image = cv2.imencode('.jpg', image_bgr)
-
-        file_path_with_points = os.path.join(current_directory, f"app/assets/${image_with_points_uuid}.jpg")
-        encoded_image_buffer = io.BytesIO(encoded_image.tobytes())
-        with open(file_path_with_points, "wb") as buffer:
-            shutil.copyfileobj(encoded_image_buffer, buffer)
+        detection_result = get_face_landmarks_detection(file_path)
 
         # original_image_base64 = "data:image/jpeg;base64," + base64.b64encode(image).decode('utf-8')
         # image_base64 = "data:image/jpeg;base64," + base64.b64encode(encoded_image).decode('utf-8')
 
-        # TODO: se nao tiver pontos identificados, dar um raise
+        # TODO: se nao tiver pontos identificados (detection_result), dar um raise
         return {
             "image": image_uuid,
-            "image_with_points": image_with_points_uuid
         }
 
     def insert_images_db(self, image_id, session_id, image_url, facial_expression, with_points):
