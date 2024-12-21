@@ -15,7 +15,7 @@ class SessionService:
         self.left_eyebrow_pts = [300, 293, 334, 296, 336, 276, 283, 282, 295, 285]
         self.right_mouth_end_pt = 61
         self.left_mouth_end_pt = 291
-        self.paralised_side = None
+        self.paralyzed_side = None
 
     def new_session(self, user_id: int):
         cursor = self.connection.cursor()
@@ -88,24 +88,24 @@ class SessionService:
             self.left_eyebrow_pts,
             self.right_eyebrow_pts
         )
-        self.paralised_side = 'left' if eyebrow_distance_results['left']['max_distance'] < \
+        self.paralyzed_side = 'left' if eyebrow_distance_results['left']['max_distance'] < \
                                         eyebrow_distance_results['right']['max_distance'] else 'right'
 
-        eyebrow_paralised_max_pt = eyebrow_distance_results[self.paralised_side]['max_point']
+        eyebrow_paralised_max_pt = eyebrow_distance_results[self.paralyzed_side]['max_point']
         eyebrow_paralised_ref_pts = self.left_eyebrow_pts if eyebrow_paralised_max_pt in self.left_eyebrow_pts else self.right_eyebrow_pts
         eyebrow_normal_ref_pts = self.left_eyebrow_pts if eyebrow_paralised_max_pt not in self.left_eyebrow_pts else self.right_eyebrow_pts
         index_paralised_pt_idx = eyebrow_paralised_ref_pts.index(eyebrow_paralised_max_pt)
         normal_eyebrow_pt_sim = eyebrow_normal_ref_pts[index_paralised_pt_idx]
 
-        paralised_side_distance = eyebrow_distance_results[self.paralised_side]['max_distance']
+        paralyzed_side_distance = eyebrow_distance_results[self.paralyzed_side]['max_distance']
         normal_side_distance = self._calculate_pts_distance_between_2_expressions(
             results_by_expression,
             ['Repouso', 'Enrugar testa'],
-            [] if self.paralised_side == 'left' else [normal_eyebrow_pt_sim],
-            [] if self.paralised_side == 'right' else [normal_eyebrow_pt_sim]
-        )['left' if self.paralised_side != 'left' else 'right']['max_distance']
+            [] if self.paralyzed_side == 'left' else [normal_eyebrow_pt_sim],
+            [] if self.paralyzed_side == 'right' else [normal_eyebrow_pt_sim]
+        )['left' if self.paralyzed_side != 'left' else 'right']['max_distance']
 
-        eyebrow_proportion = paralised_side_distance / normal_side_distance
+        eyebrow_proportion = paralyzed_side_distance / normal_side_distance
         eyebrow_score = self.calculate_HB_proportion_score(eyebrow_proportion)
         return eyebrow_score
 
@@ -117,10 +117,10 @@ class SessionService:
             [self.right_mouth_end_pt]
         )
 
-        paralised_side_distance = mouth_distance_results[self.paralised_side]['max_distance']
-        normal_side_distance = mouth_distance_results['left' if self.paralised_side != 'left' else 'right']['max_distance']
+        paralyzed_side_distance = mouth_distance_results[self.paralyzed_side]['max_distance']
+        normal_side_distance = mouth_distance_results['left' if self.paralyzed_side != 'left' else 'right']['max_distance']
 
-        mouth_proportion = paralised_side_distance / normal_side_distance
+        mouth_proportion = paralyzed_side_distance / normal_side_distance
         mouth_score = self.calculate_HB_proportion_score(mouth_proportion)
         return mouth_score
 
