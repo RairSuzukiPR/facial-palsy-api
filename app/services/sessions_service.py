@@ -1,6 +1,6 @@
 import math
 import os
-from typing import Tuple, Union, Literal
+from typing import Tuple, Union, Literal, List, Dict
 import mediapipe as mp
 import mysql
 
@@ -40,19 +40,16 @@ class SessionService:
             cursor.close()
 
 
-    def process_session(self, session_id: int):
-        images = self.get_session_images(session_id)
-        results_by_expression = []
+    def get_session_images(self, session_id: int):
+        cursor = self.connection.cursor(dictionary=True)
+        cursor.execute("select photo_id, facial_expression from photos as p where p.session_id = %s and p.with_points = FALSE", (session_id,))
+        result = cursor.fetchall()
+        cursor.close()
+        return result
 
-        for image in images:
-            current_directory = os.getcwd()
-            file_path = os.path.join(current_directory, f"app/assets/{image.get('photo_id')}.jpg")
-            results_by_expression.append({
-                image.get('facial_expression'): {
-                    "result": get_face_landmarks_detection(file_path),
-                    "file_path": file_path
-                }
-            })
+    def process_session(self, session_id: int) -> "SessionResult":
+        images = self.get_session_images(session_id)
+        results_by_expression = self._process_images(images)
 
         house_brackmann_score = self.get_house_brackmann_classif(results_by_expression)
 
@@ -64,46 +61,68 @@ class SessionService:
             photos_with_poitns=['TBD'],
         )
 
+    def _process_images(self, images: List[Dict]) -> List[Dict]:
+        current_directory = os.getcwd()
+        results = []
 
-    def get_session_images(self, session_id: int):
-        cursor = self.connection.cursor(dictionary=True)
-        cursor.execute("select photo_id, facial_expression from photos as p where p.session_id = %s and p.with_points = FALSE", (session_id,))
-        result = cursor.fetchall()
-        cursor.close()
-        return result
+        for image in images:
+            file_path = os.path.join(current_directory, f"app/assets/{image.get('photo_id')}.jpg")
+            results.append({
+                image.get('facial_expression'): {
+                    "result": get_face_landmarks_detection(file_path),
+                    "file_path": file_path,
+                }
+            })
+        return results
 
     def get_house_brackmann_classif(self, results_by_expression):
-        higher_distance_eyebrow_point_left = self.get_eyebrow_higher_pt_distance(
-            [item for item in results_by_expression if any(key in ['Repouso', 'Enrugar testa'] for key in item)], 'left')
-        higher_distance_eyebrow_point_right = self.get_eyebrow_higher_pt_distance(
-            [item for item in results_by_expression if any(key in ['Repouso', 'Enrugar testa'] for key in item)], 'right')
-
-        left_higher_eyebrow_pt, left_variation_eyebrow_distance = higher_distance_eyebrow_point_left
-        right_higher_eyebrow_pt, right_variation_eyebrow_distance = higher_distance_eyebrow_point_right
-        self.paralised_side = 'left' if left_variation_eyebrow_distance < right_variation_eyebrow_distance else 'right'
-
-
-        eyebrow_proportion = (
-                                 left_variation_eyebrow_distance if self.paralised_side == 'left' else right_variation_eyebrow_distance) / (
-                                 right_variation_eyebrow_distance if self.paralised_side == 'left' else left_variation_eyebrow_distance)
-
-        eyebrow_score = self.calculate_HB_proportion_score(eyebrow_proportion)
-
-
-        higher_distance_mouth_point_left = self.get_mouth_higher_pt_distance(
-            [item for item in results_by_expression if any(key in ['Repouso', 'Sorrir'] for key in item)], 'left')
-        higher_distance_mouth_point_right = self.get_mouth_higher_pt_distance(
-            [item for item in results_by_expression if any(key in ['Repouso', 'Sorrir'] for key in item)], 'right')
-        left_higher_mouth_pt, left_variation_mouth_distance = higher_distance_mouth_point_left
-        right_higher_mouth_pt, right_variation_mouth_distance = higher_distance_mouth_point_right
-
-        mouth_proportion = (
-                                 left_variation_mouth_distance if self.paralised_side == 'left' else right_variation_mouth_distance) / (
-                                 right_variation_mouth_distance if self.paralised_side == 'left' else left_variation_mouth_distance)
-
-        mouth_score = self.calculate_HB_proportion_score(mouth_proportion)
+        eyebrow_score = self.calculate_HB_eyebrow_score(results_by_expression)
+        mouth_score = self.calculate_HB_mouth_score(results_by_expression)
 
         return self.calculate_HB_total_score(eyebrow_score + mouth_score)
+
+    def calculate_HB_eyebrow_score(self, results_by_expression):
+        eyebrow_distance_results = self._calculate_pts_distance_between_2_expressions(
+            results_by_expression,
+            ['Repouso', 'Enrugar testa'],
+            self.left_eyebrow_pts,
+            self.right_eyebrow_pts
+        )
+        self.paralised_side = 'left' if eyebrow_distance_results['left']['max_distance'] < \
+                                        eyebrow_distance_results['right']['max_distance'] else 'right'
+
+        eyebrow_paralised_max_pt = eyebrow_distance_results[self.paralised_side]['max_point']
+        eyebrow_paralised_ref_pts = self.left_eyebrow_pts if eyebrow_paralised_max_pt in self.left_eyebrow_pts else self.right_eyebrow_pts
+        eyebrow_normal_ref_pts = self.left_eyebrow_pts if eyebrow_paralised_max_pt not in self.left_eyebrow_pts else self.right_eyebrow_pts
+        index_paralised_pt_idx = eyebrow_paralised_ref_pts.index(eyebrow_paralised_max_pt)
+        normal_eyebrow_pt_sim = eyebrow_normal_ref_pts[index_paralised_pt_idx]
+
+        paralised_side_distance = eyebrow_distance_results[self.paralised_side]['max_distance']
+        normal_side_distance = self._calculate_pts_distance_between_2_expressions(
+            results_by_expression,
+            ['Repouso', 'Enrugar testa'],
+            [] if self.paralised_side == 'left' else [normal_eyebrow_pt_sim],
+            [] if self.paralised_side == 'right' else [normal_eyebrow_pt_sim]
+        )['left' if self.paralised_side != 'left' else 'right']['max_distance']
+
+        eyebrow_proportion = paralised_side_distance / normal_side_distance
+        eyebrow_score = self.calculate_HB_proportion_score(eyebrow_proportion)
+        return eyebrow_score
+
+    def calculate_HB_mouth_score(self, results_by_expression):
+        mouth_distance_results = self._calculate_pts_distance_between_2_expressions(
+            results_by_expression,
+            ['Repouso', 'Sorrir'],
+            [self.left_mouth_end_pt],
+            [self.right_mouth_end_pt]
+        )
+
+        paralised_side_distance = mouth_distance_results[self.paralised_side]['max_distance']
+        normal_side_distance = mouth_distance_results['left' if self.paralised_side != 'left' else 'right']['max_distance']
+
+        mouth_proportion = paralised_side_distance / normal_side_distance
+        mouth_score = self.calculate_HB_proportion_score(mouth_proportion)
+        return mouth_score
 
     def calculate_HB_proportion_score(self, proportion: float) -> int:
         if proportion <= 0.25:
@@ -136,61 +155,45 @@ class SessionService:
         else:
             return "Grau I (Normal)"
 
-    def get_eyebrow_higher_pt_distance(self, expression_results, side):
-        pts = []
-        max_distance = 0
-        max_point = None
+    def _calculate_pts_distance_between_2_expressions(self, results_by_expression, expressions, left_pts, right_pts):
+        if len(expressions) != 2:
+            raise ValueError("Deve haver exatamente duas expressões para comparar.")
 
-        for item in expression_results:
-            for facial_expression, data in item.items():
-                pts.append({
-                    facial_expression: self._get_eyebrow_px_pts(mp.Image.create_from_file(data.get('file_path')), data.get('result'), side)
-                })
+        results = {}
 
-        repouso_points = pts[0]['Repouso']
-        enrugar_testa_points = pts[1]['Enrugar testa']
+        for side in ['left', 'right']:
+            points_by_expression = [
+                {
+                    expression: self.get_px_pts_from_detection_result(
+                        left_pts if side == 'left' else right_pts,
+                        mp.Image.create_from_file(data.get('file_path')),
+                        data.get('result')
+                    )
+                    for expression, data in item.items()
+                }
+                for item in [item for item in results_by_expression if any(key in expressions for key in item)]
+            ]
 
-        min_length = min(len(repouso_points), len(enrugar_testa_points))
+            try:
+                expression_1_points = points_by_expression[0][expressions[0]]
+                expression_2_points = points_by_expression[1][expressions[1]]
+            except (IndexError, KeyError) as e:
+                raise ValueError(
+                    f"Dados insuficientes para calcular distância para as expressões {expressions}") from e
 
-        for i in range(min_length):
-            key1, coord1 = list(repouso_points[i].items())[0]
-            key2, coord2 = list(enrugar_testa_points[i].items())[0]
+            max_point, max_distance = None, 0
+            for points_1, points_2 in zip(expression_1_points, expression_2_points):
+                (key1, coord1), (key2, coord2) = list(points_1.items())[0], list(points_2.items())[0]
 
-            if key1 == key2:
-                distance = self._calculate_distance_pixels(coord1, coord2)
-                if distance > max_distance:
-                    max_distance = distance
-                    max_point = key1
+                if key1 == key2:
+                    distance = self._calculate_distance_pixels(coord1, coord2)
+                    if distance > max_distance:
+                        max_distance = distance
+                        max_point = key1
 
-        return max_point, max_distance
+            results[side] = {'max_point': max_point, 'max_distance': max_distance}
 
-    def get_mouth_higher_pt_distance(self, expression_results, side):
-        pts = []
-        max_distance = 0
-        max_point = None
-
-        for item in expression_results:
-            for facial_expression, data in item.items():
-                pts.append({
-                    facial_expression: self._get_mouth_px_pts(mp.Image.create_from_file(data.get('file_path')), data.get('result'), side)
-                })
-
-        repouso_points = pts[0]['Repouso']
-        sorrir_points = pts[1]['Sorrir']
-
-        min_length = min(len(repouso_points), len(sorrir_points))
-
-        for i in range(min_length):
-            key1, coord1 = list(repouso_points[i].items())[0]
-            key2, coord2 = list(sorrir_points[i].items())[0]
-
-            if key1 == key2:
-                distance = self._calculate_distance_pixels(coord1, coord2)
-                if distance > max_distance:
-                    max_distance = distance
-                    max_point = key1
-
-        return max_point, max_distance
+        return results
 
     def _normalized_to_pixel_coordinates(self,
             normalized_x: float, normalized_y: float, image_width: int,
@@ -208,12 +211,6 @@ class SessionService:
         x_px = min(math.floor(normalized_x * image_width), image_width - 1)
         y_px = min(math.floor(normalized_y * image_height), image_height - 1)
         return x_px, y_px
-
-    def _get_eyebrow_px_pts(self, image, detection_result, side):
-        return self.get_px_pts_from_detection_result(self.right_eyebrow_pts if side == 'right' else self.left_eyebrow_pts, image, detection_result)
-
-    def _get_mouth_px_pts(self, image, detection_result, side):
-        return self.get_px_pts_from_detection_result([self.right_mouth_end_pt] if side == 'right' else [self.left_mouth_end_pt], image, detection_result)
 
     def get_px_pts_from_detection_result(self, facelandmark_pts, image, detection_result):
         pts = []
