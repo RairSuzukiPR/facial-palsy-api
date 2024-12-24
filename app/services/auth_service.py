@@ -35,6 +35,7 @@ class AuthService:
                 (user.name, user.last_name, user.email, password_hash)
             )
             self.connection.commit()
+            return cursor.lastrowid
         except Exception as e:
             self.connection.rollback()
             raise e

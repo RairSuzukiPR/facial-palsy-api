@@ -18,7 +18,7 @@ async def login(user: UserLogin, db: mysql.connector.MySQLConnection = Depends(g
         if db_user is None or not verify_password(user.password, db_user.get('password_hash')):
             raise HTTPException(status_code=401, detail="Invalid credentials")
 
-        token = create_access_token(data={"sub": db_user.get('name') + db_user.get('last_name')})
+        token = create_access_token(data={"id": db_user.get('id'), "name": db_user.get('name') + db_user.get('last_name')})
 
         return UserResponse(
             id=db_user.get('id'),
@@ -36,10 +36,11 @@ async def login(user: UserLogin, db: mysql.connector.MySQLConnection = Depends(g
 async def create_new_user(user: UserCreate, db: mysql.connector.MySQLConnection = Depends(get_db_connection)):
     try:
         users_service = AuthService(db)
-        users_service.create_user(user)
-        token = create_access_token(data={"sub": user.name + user.last_name})
+        user_id = users_service.create_user(user)
+        token = create_access_token(data={"id": user_id, "name": user.name + user.last_name})
 
         return UserResponse(
+            id=user_id,
             name=user.name,
             last_name=user.last_name,
             email=user.email,
