@@ -17,7 +17,14 @@ class AuthService:
 
     def get_user_by_email(self, email: str):
         cursor = self.connection.cursor(dictionary=True)
-        cursor.execute("SELECT id, name, last_name, email, password_hash FROM users WHERE users.email = %s", (email,))
+        cursor.execute("SELECT id, name, last_name, email, password_hash, eyelid_surgery, nasolabial_fold, nasolabial_fold_only_paralyzed_side FROM users WHERE users.email = %s", (email,))
+        result = cursor.fetchone()
+        cursor.close()
+        return result
+
+    def get_user_by_id(self, user_id: int):
+        cursor = self.connection.cursor(dictionary=True)
+        cursor.execute("SELECT id, name, last_name, email, password_hash, eyelid_surgery, nasolabial_fold, nasolabial_fold_only_paralyzed_side FROM users WHERE users.id = %s", (user_id,))
         result = cursor.fetchone()
         cursor.close()
         return result

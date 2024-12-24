@@ -52,12 +52,12 @@ class SessionService:
         cursor.close()
         return result
 
-    def process_session(self, session_id: int) -> "SessionResult":
+    def process_session(self, user, session_id: int) -> "SessionResult":
         images = self.get_session_images(session_id)
         results_by_expression = self._process_images(images)
 
         house_brackmann_score = self.get_house_brackmann_classif(results_by_expression)
-        sunnybrook_score = self.get_sunnybrook_classif(results_by_expression)
+        sunnybrook_score = self.get_sunnybrook_classif(results_by_expression, user)
 
         return SessionResult(
             session_id=session_id,
@@ -162,32 +162,35 @@ class SessionService:
         else:
             return "Grau I (Normal)"
 
-    def get_sunnybrook_classif(self, results_by_expression):
-        rest_symmetry_score = self.calculate_SB_rest_symmetry_score(results_by_expression)
+    def get_sunnybrook_classif(self, results_by_expression, user):
+        rest_symmetry_score = self.calculate_SB_rest_symmetry_score(results_by_expression, user)
         movement_symmetry_score = self.calculate_SB_movement_symmetry_score(results_by_expression)
         synkinesis_score = self.calculate_SB_synkinesis_score(results_by_expression)
 
         # ter um de/para aq?
         return rest_symmetry_score + movement_symmetry_score + synkinesis_score
 
-    def calculate_SB_rest_symmetry_score(self, results_by_expression):
-        # TODO: verificar se cirurgia de palpebra
-        distances_eyes = self._calculate_distance_from_expression_pts(
-            results_by_expression,
-            ['Repouso'],
-            self.left_eye_open_pts,
-            self.right_eye_open_pts
-        )
-        paralyzed_side_distance_eyes = distances_eyes[0 if self.paralyzed_side == 'left' else 1]
-        normal_side_distance_eyes = distances_eyes[1 if self.paralyzed_side == 'left' else 0]
-        perc_variation_eyes = abs(normal_side_distance_eyes - paralyzed_side_distance_eyes) / normal_side_distance_eyes * 100
-        eye_score = 1 if perc_variation_eyes > 20 else 0
+    def calculate_SB_rest_symmetry_score(self, results_by_expression, user):
+        if user.get('eyelid_surgery'):
+            eye_score = 1
+        else :
+            distances_eyes = self._calculate_distance_from_expression_pts(
+                results_by_expression,
+                ['Repouso'],
+                self.left_eye_open_pts,
+                self.right_eye_open_pts
+            )
+            paralyzed_side_distance_eyes = distances_eyes[0 if self.paralyzed_side == 'left' else 1]
+            normal_side_distance_eyes = distances_eyes[1 if self.paralyzed_side == 'left' else 0]
+            perc_variation_eyes = abs(normal_side_distance_eyes - paralyzed_side_distance_eyes) / normal_side_distance_eyes * 100
+            eye_score = 1 if perc_variation_eyes > 20 else 0
         # print('perc_variation_eyes', distances_eyes, perc_variation_eyes, eye_score)
 
-        # TODO:  verificar nas perguntas: Voce tem bigode chines?
-        # -> sim, Voce tem bigode chines apenas no lado paralisado? (sim=2, nao=1);
-        # -> nao, 0
         cheeks_score = 0
+        if user.get('nasolabial_fold'):
+            if user.get('nasolabial_fold_only_paralyzed_side'):
+                cheeks_score = 2
+            else: cheeks_score = 1
 
         distances_mouth = self._calculate_distance_mouth_variation(
             results_by_expression,
