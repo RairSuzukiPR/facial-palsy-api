@@ -314,8 +314,8 @@ class SessionService:
             ]
 
             try:
-                expression_1_points = points_by_expression[0][expressions[0]]
-                expression_2_points = points_by_expression[1][expressions[1]]
+                expression_1_points = next(iter(points_by_expression[0].values()))
+                expression_2_points = next(iter(points_by_expression[1].values()))
             except (IndexError, KeyError) as e:
                 raise ValueError(f"Dados insuficientes para {expressions}") from e
 
