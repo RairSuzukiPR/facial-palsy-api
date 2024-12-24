@@ -120,7 +120,7 @@ class SessionService:
     def calculate_HB_mouth_score(self, results_by_expression):
         distances = self._calculate_distance_between_expression_pts(
             results_by_expression,
-            ['Repouso', 'Sorrir'],
+            ['Repouso', 'Sorrir mostrando os dentes'],
             self.left_mouth_end_pt,
             self.right_mouth_end_pt
         )
