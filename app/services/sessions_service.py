@@ -207,7 +207,30 @@ class SessionService:
         return (eye_score + cheeks_score + mouth_score) * 5
 
     def calculate_SB_movement_symmetry_score(self, results_by_expression):
-        return 0
+        # Forehead wrinkle
+        forehead_wrinkle_score = self._calculate_SB_forehead_wrinkle_score(results_by_expression)
+        print('forehead_wrinkle_score', forehead_wrinkle_score)
+
+        # Gentle eye closure
+        # Open-mouth smile
+        # Snarl
+        # Lip pucker
+        return (forehead_wrinkle_score + 0 + 0 + 0 + 0) * 4
+
+    def calculate_SB_movement_percentage_score(self, variation_percentage: float) -> int:
+        if not (0 <= variation_percentage <= 100):
+            raise ValueError("Error calculating SB percentage score")
+
+        if variation_percentage <= 20:
+            return 1
+        elif variation_percentage <= 40:
+            return 2
+        elif variation_percentage <= 60:
+            return 3
+        elif variation_percentage <= 80:
+            return 4
+        else:
+            return 5
 
     def calculate_SB_synkinesis_score(self, results_by_expression):
         return 0
@@ -331,6 +354,51 @@ class SessionService:
 
             results[side] = {'max_point': max_point, 'max_distance': max_distance}
 
+        return results
+
+    def _calculate_SB_forehead_wrinkle_score(self, results_by_expression):
+        eyebrows_mid_pts_rest = self._get_eyebrow_mid_pt(results_by_expression, 'Repouso')
+        eyebrows_mid_pts_forehead_w = self._get_eyebrow_mid_pt(results_by_expression, 'Enrugar testa')
+        left_distance = self._calculate_distance_pixels(eyebrows_mid_pts_rest[0], eyebrows_mid_pts_forehead_w[0])
+        right_distance = self._calculate_distance_pixels(eyebrows_mid_pts_rest[1], eyebrows_mid_pts_forehead_w[1])
+
+        paralyzed_side_distance = left_distance if self.paralyzed_side == 'left' else right_distance
+        normal_side_distance = right_distance if self.paralyzed_side == 'left' else left_distance
+        perc_variation = abs(
+            normal_side_distance - paralyzed_side_distance) / normal_side_distance * 100
+        # print('eyebrows_mid_pts_rest', eyebrows_mid_pts_rest)
+        # print('eyebrows_mid_pts_forehead_w', eyebrows_mid_pts_forehead_w)
+        # print('perc_variation', perc_variation)
+
+        return self.calculate_SB_movement_percentage_score(perc_variation)
+
+    def _calculate_mid_point(self, pts):
+        total_pts = len(pts)
+        sum_x = 0
+        sum_y = 0
+
+        for pt in pts:
+            _, (x, y) = next(iter(pt.items()))
+            sum_x += x
+            sum_y += y
+
+        return (int(sum_x / total_pts), int(sum_y / total_pts))
+
+    def _get_eyebrow_mid_pt(self, results_by_expression, exp):
+        results = []
+        right_eyebrow_pts = self.right_eyebrow_pts[:5]
+        left_eyebrow_pts = self.left_eyebrow_pts[:5]
+        filtered_items = [item for item in results_by_expression if any(key in exp for key in item)]
+
+        for side in ['left', 'right']:
+            for item in filtered_items:
+                for expression, data in item.items():
+                    expression_data = self.get_px_pts_from_detection_result(
+                                left_eyebrow_pts if side == 'left' else right_eyebrow_pts,
+                                mp.Image.create_from_file(data.get('file_path')),
+                                data.get('result')
+                            )
+                    results.append(self._calculate_mid_point(expression_data))
         return results
 
     def _normalized_to_pixel_coordinates(self,
