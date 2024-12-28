@@ -216,9 +216,12 @@ class SessionService:
         print('gentle_eye_closure_score', gentle_eye_closure_score)
 
         # Open-mouth smile
+        open_mouth_smile = self._calculate_SB_open_mouth_smile_score(results_by_expression)
+        print('open_mouth_smile', open_mouth_smile)
+
         # Snarl
         # Lip pucker
-        return (forehead_wrinkle_score + gentle_eye_closure_score + 0 + 0 + 0) * 4
+        return (forehead_wrinkle_score + gentle_eye_closure_score + open_mouth_smile + 0 + 0) * 4
 
     def calculate_SB_movement_percentage_score(self, variation_percentage: float) -> int:
         if not (0 <= variation_percentage <= 100):
@@ -389,6 +392,22 @@ class SessionService:
         # print('distances_eyes', distances_eyes)
         # print('perc_variation_eyes', perc_variation_eyes)
         return self.calculate_SB_movement_percentage_score(perc_variation_eyes)
+
+    def _calculate_SB_open_mouth_smile_score(self, results_by_expression):
+        distances_mouth = self._calculate_distance_between_expression_pts(
+            results_by_expression,
+            ['Repouso', 'Sorrir mostrando os dentes'],
+            self.left_mouth_end_pt,
+            self.right_mouth_end_pt
+        )
+        paralyzed_side_distance_mouth = distances_mouth[0 if self.paralyzed_side == 'left' else 1]
+        normal_side_distance_mouth = distances_mouth[1 if self.paralyzed_side == 'left' else 0]
+        perc_variation = abs(
+            normal_side_distance_mouth - paralyzed_side_distance_mouth) / normal_side_distance_mouth * 100
+        # print('distances_eyes', distances_eyes)
+        # print('perc_variation_eyes', perc_variation_eyes)
+
+        return self.calculate_SB_movement_percentage_score(perc_variation)
 
     def _calculate_mid_point(self, pts):
         total_pts = len(pts)
