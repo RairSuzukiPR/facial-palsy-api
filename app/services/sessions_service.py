@@ -212,10 +212,13 @@ class SessionService:
         print('forehead_wrinkle_score', forehead_wrinkle_score)
 
         # Gentle eye closure
+        gentle_eye_closure_score = self._calculate_SB_gentle_eye_closure_score(results_by_expression)
+        print('gentle_eye_closure_score', gentle_eye_closure_score)
+
         # Open-mouth smile
         # Snarl
         # Lip pucker
-        return (forehead_wrinkle_score + 0 + 0 + 0 + 0) * 4
+        return (forehead_wrinkle_score + gentle_eye_closure_score + 0 + 0 + 0) * 4
 
     def calculate_SB_movement_percentage_score(self, variation_percentage: float) -> int:
         if not (0 <= variation_percentage <= 100):
@@ -371,6 +374,21 @@ class SessionService:
         # print('perc_variation', perc_variation)
 
         return self.calculate_SB_movement_percentage_score(perc_variation)
+
+    def _calculate_SB_gentle_eye_closure_score(self, results_by_expression):
+        distances_eyes = self._calculate_distance_from_expression_pts(
+            results_by_expression,
+            ['Fechar os olhos sem apertar'],
+            self.left_eye_open_pts,
+            self.right_eye_open_pts,
+        )
+        paralyzed_side_distance_eyes = distances_eyes[0 if self.paralyzed_side == 'left' else 1]
+        normal_side_distance_eyes = distances_eyes[1 if self.paralyzed_side == 'left' else 0]
+        perc_variation_eyes = abs(
+            normal_side_distance_eyes - paralyzed_side_distance_eyes) / normal_side_distance_eyes * 100
+        # print('distances_eyes', distances_eyes)
+        # print('perc_variation_eyes', perc_variation_eyes)
+        return self.calculate_SB_movement_percentage_score(perc_variation_eyes)
 
     def _calculate_mid_point(self, pts):
         total_pts = len(pts)
