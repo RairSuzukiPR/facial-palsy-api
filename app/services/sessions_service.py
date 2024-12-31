@@ -21,6 +21,8 @@ class SessionService:
         self.right_eye_open_pts = [159, 145]
         self.left_eye_open_pts = [386, 374]
         self.alar_base_pts = [48, 278]
+        self.right_mouth_lip_p_pts = [58, 61]
+        self.left_mouth_lip_p_pts = [288, 291]
 
 
     def new_session(self, user_id: int):
@@ -208,24 +210,22 @@ class SessionService:
         return (eye_score + cheeks_score + mouth_score) * 5
 
     def calculate_SB_movement_symmetry_score(self, results_by_expression):
-        # Forehead wrinkle
         forehead_wrinkle_score = self._calculate_SB_forehead_wrinkle_score(results_by_expression)
         print('forehead_wrinkle_score', forehead_wrinkle_score)
 
-        # Gentle eye closure
         gentle_eye_closure_score = self._calculate_SB_gentle_eye_closure_score(results_by_expression)
         print('gentle_eye_closure_score', gentle_eye_closure_score)
 
-        # Open-mouth smile
         open_mouth_smile_score = self._calculate_SB_open_mouth_smile_score(results_by_expression)
         print('open_mouth_smile_score', open_mouth_smile_score)
 
-        # Snarl
         snarl_score = self._calculate_SB_snarl_score(results_by_expression)
         print('snarl_score', snarl_score)
 
-        # Lip pucker
-        return (forehead_wrinkle_score + gentle_eye_closure_score + open_mouth_smile_score + snarl_score + 0) * 4
+        lip_pucker_score = self._calculate_SB_lip_pucker_score(results_by_expression)
+        print('lip_pucker_score', lip_pucker_score)
+
+        return (forehead_wrinkle_score + gentle_eye_closure_score + open_mouth_smile_score + snarl_score + lip_pucker_score) * 4
 
     def calculate_SB_movement_percentage_score(self, variation_percentage: float) -> int:
         if not (0 <= variation_percentage <= 100):
@@ -290,6 +290,7 @@ class SessionService:
                                 mp.Image.create_from_file(data.get('file_path')),
                                 data.get('result')
                             )
+                    # print('expression_data', expression_data)
                     distance = self._calculate_distance_pixels(next(iter(expression_data[0].values())), next(iter(expression_data[1].values())))
                     results.append(distance)
 
@@ -422,6 +423,39 @@ class SessionService:
         )
         paralyzed_side_distance = distances[0 if self.paralyzed_side == 'left' else 1]
         normal_side_distance = distances[1 if self.paralyzed_side == 'left' else 0]
+        # print('paralyzed_side_distance', paralyzed_side_distance)
+        # print('normal_side_distance', normal_side_distance)
+
+        perc_variation = abs(
+            normal_side_distance - paralyzed_side_distance) / normal_side_distance * 100
+        # print('perc_variation', perc_variation)
+
+        return self.calculate_SB_movement_percentage_score(perc_variation)
+
+    def _calculate_SB_lip_pucker_score(self, results_by_expression):
+        distances_rest = self._calculate_distance_from_expression_pts(
+            results_by_expression,
+            ['Repouso'],
+            self.left_mouth_lip_p_pts,
+            self.right_mouth_lip_p_pts,
+        )
+        # print('distances_rest', distances_rest)
+
+        distances_lip_pucker = self._calculate_distance_from_expression_pts(
+            results_by_expression,
+            ['Assobiar'],
+            self.left_mouth_lip_p_pts,
+            self.right_mouth_lip_p_pts,
+        )
+        # print('distances_lip_pucker', distances_lip_pucker)
+
+        excursion_left = abs(distances_rest[0] - distances_lip_pucker[0])
+        excursion_right = abs(distances_rest[1] - distances_lip_pucker[1])
+        # print('excursion_left', excursion_left)
+        # print('excursion_right', excursion_right)
+
+        paralyzed_side_distance = excursion_left if self.paralyzed_side == 'left' else excursion_right
+        normal_side_distance = excursion_right if self.paralyzed_side == 'left' else excursion_left
         # print('paralyzed_side_distance', paralyzed_side_distance)
         # print('normal_side_distance', normal_side_distance)
 
