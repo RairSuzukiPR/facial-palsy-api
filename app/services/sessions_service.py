@@ -20,6 +20,7 @@ class SessionService:
         self.left_mouth_end_pt = 291
         self.right_eye_open_pts = [159, 145]
         self.left_eye_open_pts = [386, 374]
+        self.alar_base_pts = [48, 278]
 
 
     def new_session(self, user_id: int):
@@ -216,12 +217,15 @@ class SessionService:
         print('gentle_eye_closure_score', gentle_eye_closure_score)
 
         # Open-mouth smile
-        open_mouth_smile = self._calculate_SB_open_mouth_smile_score(results_by_expression)
-        print('open_mouth_smile', open_mouth_smile)
+        open_mouth_smile_score = self._calculate_SB_open_mouth_smile_score(results_by_expression)
+        print('open_mouth_smile_score', open_mouth_smile_score)
 
         # Snarl
+        snarl_score = self._calculate_SB_snarl_score(results_by_expression)
+        print('snarl_score', snarl_score)
+
         # Lip pucker
-        return (forehead_wrinkle_score + gentle_eye_closure_score + open_mouth_smile + 0 + 0) * 4
+        return (forehead_wrinkle_score + gentle_eye_closure_score + open_mouth_smile_score + snarl_score + 0) * 4
 
     def calculate_SB_movement_percentage_score(self, variation_percentage: float) -> int:
         if not (0 <= variation_percentage <= 100):
@@ -406,6 +410,24 @@ class SessionService:
             normal_side_distance_mouth - paralyzed_side_distance_mouth) / normal_side_distance_mouth * 100
         # print('distances_eyes', distances_eyes)
         # print('perc_variation_eyes', perc_variation_eyes)
+
+        return self.calculate_SB_movement_percentage_score(perc_variation)
+
+    def _calculate_SB_snarl_score(self, results_by_expression):
+        distances = self._calculate_distance_between_expression_pts(
+            results_by_expression,
+            ['Repouso', 'Elevar o lábio superior'],
+            self.alar_base_pts[1],
+            self.alar_base_pts[0],
+        )
+        paralyzed_side_distance = distances[0 if self.paralyzed_side == 'left' else 1]
+        normal_side_distance = distances[1 if self.paralyzed_side == 'left' else 0]
+        # print('paralyzed_side_distance', paralyzed_side_distance)
+        # print('normal_side_distance', normal_side_distance)
+
+        perc_variation = abs(
+            normal_side_distance - paralyzed_side_distance) / normal_side_distance * 100
+        # print('perc_variation', perc_variation)
 
         return self.calculate_SB_movement_percentage_score(perc_variation)
 
