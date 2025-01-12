@@ -27,6 +27,9 @@ class UserResponse(BaseModel):
     email: EmailStr
     message: str
     token: str
+    eyelid_surgery: bool
+    nasolabial_fold: bool
+    nasolabial_fold_only_paralyzed_side: bool
 
 class UserLogin(BaseModel):
     email: EmailStr

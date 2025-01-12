@@ -26,7 +26,10 @@ async def login(user: UserLogin, db: mysql.connector.MySQLConnection = Depends(g
             last_name=db_user.get('last_name'),
             email=db_user.get('email'),
             token=token,
-            message="Login realizado!"
+            message="Login realizado!",
+            eyelid_surgery=db_user.get('eyelid_surgery'),
+            nasolabial_fold=db_user.get('nasolabial_fold'),
+            nasolabial_fold_only_paralyzed_side=db_user.get('nasolabial_fold_only_paralyzed_side'),
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -45,7 +48,10 @@ async def create_new_user(user: UserCreate, db: mysql.connector.MySQLConnection 
             last_name=user.last_name,
             email=user.email,
             message="Usuário criado com sucesso!",
-            token=token
+            token=token,
+            eyelid_surgery=user.eyelid_surgery,
+            nasolabial_fold=user.nasolabial_fold,
+            nasolabial_fold_only_paralyzed_side=user.nasolabial_fold_only_paralyzed_side,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -64,7 +70,10 @@ async def create_new_user(user: UserEdit, db: mysql.connector.MySQLConnection = 
             last_name=user.last_name,
             email=user.email,
             message="Usuário editado com sucesso!",
-            token=token
+            token=token,
+            eyelid_surgery=user.eyelid_surgery,
+            nasolabial_fold=user.nasolabial_fold,
+            nasolabial_fold_only_paralyzed_side=user.nasolabial_fold_only_paralyzed_side,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
