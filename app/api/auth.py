@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import get_db_connection
 from app.core.security import verify_password, create_access_token, verify_token
-from app.db.models.User import UserLogin, UserResponse, UserCreate
+from app.db.models.User import UserLogin, UserResponse, UserCreate, UserEdit
 from app.services.auth_service import AuthService
 
 router = APIRouter()
@@ -45,6 +45,25 @@ async def create_new_user(user: UserCreate, db: mysql.connector.MySQLConnection 
             last_name=user.last_name,
             email=user.email,
             message="Usuário criado com sucesso!",
+            token=token
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.patch("/edit", response_model=UserResponse, dependencies=[Depends(verify_token)])
+async def create_new_user(user: UserEdit, db: mysql.connector.MySQLConnection = Depends(get_db_connection)):
+    try:
+        users_service = AuthService(db)
+        user_id = users_service.edit_user(user)
+        token = create_access_token(data={"id": user_id, "name": user.name + user.last_name})
+
+        return UserResponse(
+            id=user_id,
+            name=user.name,
+            last_name=user.last_name,
+            email=user.email,
+            message="Usuário editado com sucesso!",
             token=token
         )
     except Exception as e:

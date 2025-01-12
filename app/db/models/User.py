@@ -9,6 +9,17 @@ class UserCreate(BaseModel):
     nasolabial_fold: bool
     nasolabial_fold_only_paralyzed_side: bool
 
+
+class UserEdit(BaseModel):
+    id: int
+    name: str
+    last_name: str
+    email: EmailStr
+    password: str
+    eyelid_surgery: bool
+    nasolabial_fold: bool
+    nasolabial_fold_only_paralyzed_side: bool
+
 class UserResponse(BaseModel):
     id: int
     name: str
