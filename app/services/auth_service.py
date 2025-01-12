@@ -36,10 +36,10 @@ class AuthService:
         try:
             cursor.execute(
                 """
-                INSERT INTO users (name, last_name, email, password_hash)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO users (name, last_name, email, password_hash, eyelid_surgery, nasolabial_fold, nasolabial_fold_only_paralyzed_side)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
-                (user.name, user.last_name, user.email, password_hash)
+                (user.name, user.last_name, user.email, password_hash, user.eyelid_surgery, user.nasolabial_fold, user.nasolabial_fold_only_paralyzed_side)
             )
             self.connection.commit()
             return cursor.lastrowid
