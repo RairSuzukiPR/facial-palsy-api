@@ -1,5 +1,6 @@
 from typing import List, Literal
 from pydantic import BaseModel
+import datetime
 
 class NewSessionPayload(BaseModel):
     user_id: int
@@ -9,7 +10,14 @@ class ProcessSessionPayload(BaseModel):
 
 class SessionResult(BaseModel):
     session_id: int
-    house_brackmann: Literal['Grau I (Normal)', 'Grau II (Paralisia Leve)', 'Grau III (Paralisia Moderada)', 'Grau IV (Paralisia Moderada-Severa)', 'Grau V (Paralisia Severa)', 'Grau VI (Paralisia Total)']
-    sunnybrook: int
+    house_brackmann: str
+    sunnybrook: str
+    eyes_simetry: int
+    eyebrows_simetry: int
+    mouth_simetry: int
+    chin_simetry: int
+    eyes_synkinesis: bool
+    eyebrows_synkinesis: bool
+    mouth_synkinesis: bool
+    processed_at: datetime.datetime
     photos: List[str]
-    photos_with_poitns: List[str]

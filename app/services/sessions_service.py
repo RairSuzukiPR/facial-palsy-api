@@ -1,9 +1,12 @@
+import datetime
 import math
 import os
 from typing import Tuple, Union, Literal, List, Dict
 import mediapipe as mp
 import mysql
-
+from PIL import Image
+import io
+import base64
 from app.db.models.Session import SessionResult
 from app.services.images_service import get_face_landmarks_detection
 
@@ -47,6 +50,32 @@ class SessionService:
         finally:
             cursor.close()
 
+    def get_sessions(self, user_id):
+        cursor = self.connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT
+                s.session_id,
+                p.photo_id,
+                house_brackmann,
+                sunnybrook,
+                eyes_simetry,
+                eyebrows_simetry,
+                mouth_simetry,
+                chin_simetry,
+                eyes_synkinesis,
+                eyebrows_synkinesis,
+                mouth_synkinesis,
+                processed_at
+            FROM `facial-palsy-db`.results as r
+                join `facial-palsy-db`.sessions as s
+                    on s.session_id = r.session_id
+                join `facial-palsy-db`.photos as p
+                    on s.session_id = p.session_id 
+            where s.user_id = %s;
+        """, (user_id,))
+        result = cursor.fetchall()
+        cursor.close()
+        return result
 
     def get_session_images(self, session_id: int):
         cursor = self.connection.cursor(dictionary=True)
@@ -57,17 +86,34 @@ class SessionService:
 
     def process_session(self, user, session_id: int) -> "SessionResult":
         images = self.get_session_images(session_id)
-        results_by_expression = self._process_images(images)
+        # results_by_expression = self._process_images(images)
+        #
+        # house_brackmann_score = self.get_house_brackmann_classif(results_by_expression)
+        # sunnybrook_score = self.get_sunnybrook_classif(results_by_expression, user)
 
-        house_brackmann_score = self.get_house_brackmann_classif(results_by_expression)
-        sunnybrook_score = self.get_sunnybrook_classif(results_by_expression, user)
+        imagesB64 = []
+        for item in images:
+            photo_path = os.path.join(os.getcwd(), f"app/assets/{item['photo_id']}.jpg")
+            base64_image = self.file_to_base64(photo_path, compression_level=30)
+            if base64_image:
+                imagesB64.append("data:image/jpeg;base64," + base64_image)
 
         return SessionResult(
             session_id=session_id,
-            house_brackmann=house_brackmann_score,
-            sunnybrook=sunnybrook_score,
-            photos=['TBD'],
-            photos_with_poitns=['TBD'],
+            # house_brackmann=house_brackmann_score,
+            # sunnybrook=sunnybrook_score,
+            house_brackmann="I",
+            sunnybrook='90',
+            eyes_simetry=90,
+            eyebrows_simetry=90,
+            mouth_simetry=90,
+            chin_simetry=90,
+            eyes_synkinesis=False,
+            eyebrows_synkinesis=True,
+            mouth_synkinesis=False,
+            processed_at=datetime.datetime.now(),
+            photos=imagesB64,
+            # photos_with_poitns=['TBD'],
         )
 
     def _process_images(self, images: List[Dict]) -> List[Dict]:
@@ -87,7 +133,8 @@ class SessionService:
     def get_house_brackmann_classif(self, results_by_expression):
         eyebrow_score = self.calculate_HB_eyebrow_score(results_by_expression)
         mouth_score = self.calculate_HB_mouth_score(results_by_expression)
-
+        print('HB eyebrow_score', eyebrow_score)
+        print('HB mouth_score', mouth_score)
         return self.calculate_HB_total_score(eyebrow_score + mouth_score)
 
     def calculate_HB_eyebrow_score(self, results_by_expression):
@@ -105,6 +152,10 @@ class SessionService:
         eyebrow_normal_ref_pts = self.left_eyebrow_pts if eyebrow_paralised_max_pt not in self.left_eyebrow_pts else self.right_eyebrow_pts
         index_paralised_pt_idx = eyebrow_paralised_ref_pts.index(eyebrow_paralised_max_pt)
         normal_eyebrow_pt_sim = eyebrow_normal_ref_pts[index_paralised_pt_idx]
+        # print('eyebrow_distance_results', eyebrow_distance_results)
+        # print('self.paralyzed_side', self.paralyzed_side)
+        # print('aaa', eyebrow_paralised_max_pt if self.paralyzed_side == 'left' else normal_eyebrow_pt_sim)
+        # print('bbb', eyebrow_paralised_max_pt if self.paralyzed_side == 'right' else normal_eyebrow_pt_sim)
 
         distances = self._calculate_distance_between_expression_pts(
             results_by_expression,
@@ -115,9 +166,13 @@ class SessionService:
 
         paralyzed_side_distance = distances[0 if self.paralyzed_side == 'left' else 1]
         normal_side_distance = distances[1 if self.paralyzed_side == 'left' else 0]
+        # print('paralyzed_side_distance', paralyzed_side_distance)
+        # print('normal_side_distance', normal_side_distance)
 
         eyebrow_proportion = paralyzed_side_distance / normal_side_distance
+        # print('eyebrow_proportion', eyebrow_proportion)
         eyebrow_score = self.calculate_HB_proportion_score(eyebrow_proportion)
+        # print('eyebrow_score', eyebrow_score)
         return eyebrow_score
 
     def calculate_HB_mouth_score(self, results_by_expression):
@@ -129,9 +184,15 @@ class SessionService:
         )
         paralyzed_side_distance = distances[0 if self.paralyzed_side == 'left' else 1]
         normal_side_distance = distances[1 if self.paralyzed_side == 'left' else 0]
+        # print('self.paralyzed_side', self.paralyzed_side)
+        # print('distances', distances)
+        # print('paralyzed_side_distance', paralyzed_side_distance)
+        # print('normal_side_distance', normal_side_distance)
 
         mouth_proportion = paralyzed_side_distance / normal_side_distance
         mouth_score = self.calculate_HB_proportion_score(mouth_proportion)
+        # print('mouth_proportion', mouth_proportion)
+        # print('mouth_score', mouth_score)
         return mouth_score
 
     def calculate_HB_proportion_score(self, proportion: float) -> int:
@@ -170,6 +231,8 @@ class SessionService:
         movement_symmetry_score = self.calculate_SB_movement_symmetry_score(results_by_expression)
         synkinesis_score = self.calculate_SB_synkinesis_score(results_by_expression)
 
+        print('rest_symmetry_score', rest_symmetry_score)
+        print('movement_symmetry_score', movement_symmetry_score)
         # ter um de/para aq?
         return rest_symmetry_score + movement_symmetry_score + synkinesis_score
 
@@ -535,3 +598,20 @@ class SessionService:
             return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
         else:
             raise ValueError("Invalid distance type")
+
+    def file_to_base64(self, file_path, compression_level=None):
+        try:
+            if compression_level is not None:
+                with Image.open(file_path) as img:
+                    output = io.BytesIO()
+                    img.save(output, format=img.format, quality=compression_level)
+                    output.seek(0)
+                    return base64.b64encode(output.read()).decode("utf-8")
+            else:
+                with open(file_path, "rb") as file:
+                    return base64.b64encode(file.read()).decode("utf-8")
+        except FileNotFoundError:
+            return None
+        except Exception as e:
+            print(f"Erro: {e}")
+            return None
