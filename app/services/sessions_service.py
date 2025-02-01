@@ -183,7 +183,8 @@ class SessionService:
             results_by_expression,
             ['Repouso', 'Sorrir mostrando os dentes'],
             self.left_mouth_end_pt,
-            self.right_mouth_end_pt
+            self.right_mouth_end_pt,
+            'horizontal'
         )
         paralyzed_side_distance = distances[0 if self.paralyzed_side == 'left' else 1]
         normal_side_distance = distances[1 if self.paralyzed_side == 'left' else 0]
@@ -391,7 +392,7 @@ class SessionService:
         return forehead_wrinkle_score + gentle_eye_closure_score + open_mouth_smile_score + snarl_score + lip_pucker_score
 
 
-    def _calculate_distance_between_expression_pts(self, results_by_expression, expressions, left_pt, right_pt):
+    def _calculate_distance_between_expression_pts(self, results_by_expression, expressions, left_pt, right_pt, distance_type='euclidian'):
         results = []
         points_by_expression = []
         filtered_items = [item for item in results_by_expression if any(key in expressions for key in item)]
@@ -417,7 +418,7 @@ class SessionService:
             points_by_expression.append(aux)
 
         for expressions_coords in points_by_expression:
-            results.append(self._calculate_distance_pixels(expressions_coords[0], expressions_coords[1]))
+            results.append(self._calculate_distance_pixels(expressions_coords[0], expressions_coords[1], distance_type))
 
         return results
 
