@@ -15,6 +15,9 @@ class SessionService:
     def __init__(self, db_connection: mysql.connector.MySQLConnection):
         self.connection = db_connection
         self.paralyzed_side = None
+        self.synkinesis_eyebrows = False
+        self.synkinesis_eyes = False
+        self.synkinesis_mouth = False
 
         self.right_eyebrow_pts = [70, 63, 105, 66, 107, 46, 53, 52, 65, 55]
         self.left_eyebrow_pts = [300, 293, 334, 296, 336, 276, 283, 282, 295, 285]
@@ -86,10 +89,10 @@ class SessionService:
 
     def process_session(self, user, session_id: int) -> "SessionResult":
         images = self.get_session_images(session_id)
-        # results_by_expression = self._process_images(images)
-        #
-        # house_brackmann_score = self.get_house_brackmann_classif(results_by_expression)
-        # sunnybrook_score = self.get_sunnybrook_classif(results_by_expression, user)
+        results_by_expression = self._process_images(images)
+
+        house_brackmann_score = self.get_house_brackmann_classif(results_by_expression)
+        sunnybrook_score = self.get_sunnybrook_classif(results_by_expression, user)
 
         imagesB64 = []
         for item in images:
@@ -100,10 +103,10 @@ class SessionService:
 
         return SessionResult(
             session_id=session_id,
-            # house_brackmann=house_brackmann_score,
-            # sunnybrook=sunnybrook_score,
-            house_brackmann="I",
-            sunnybrook='90',
+            house_brackmann=house_brackmann_score,
+            sunnybrook=sunnybrook_score,
+            # house_brackmann="I",
+            # sunnybrook='90',
             eyes_simetry=90,
             eyebrows_simetry=90,
             mouth_simetry=90,
@@ -233,8 +236,10 @@ class SessionService:
 
         print('rest_symmetry_score', rest_symmetry_score)
         print('movement_symmetry_score', movement_symmetry_score)
-        # ter um de/para aq?
-        return rest_symmetry_score + movement_symmetry_score + synkinesis_score
+        print('synkinesis_score', synkinesis_score)
+
+        # TODO: VALIDAR
+        return movement_symmetry_score - rest_symmetry_score - synkinesis_score
 
     def calculate_SB_rest_symmetry_score(self, results_by_expression, user):
         if user.get('eyelid_surgery'):
@@ -273,13 +278,13 @@ class SessionService:
         return (eye_score + cheeks_score + mouth_score) * 5
 
     def calculate_SB_movement_symmetry_score(self, results_by_expression):
-        forehead_wrinkle_score = self._calculate_SB_forehead_wrinkle_score(results_by_expression)
+        forehead_wrinkle_score, _ = self._calculate_SB_forehead_wrinkle_score(results_by_expression, 'Enrugar testa')
         print('forehead_wrinkle_score', forehead_wrinkle_score)
 
-        gentle_eye_closure_score = self._calculate_SB_gentle_eye_closure_score(results_by_expression)
+        gentle_eye_closure_score, _ = self._calculate_SB_gentle_eye_closure_score(results_by_expression, 'Fechar os olhos sem apertar')
         print('gentle_eye_closure_score', gentle_eye_closure_score)
 
-        open_mouth_smile_score = self._calculate_SB_open_mouth_smile_score(results_by_expression)
+        open_mouth_smile_score, _ = self._calculate_SB_open_mouth_smile_score(results_by_expression, 'Sorrir mostrando os dentes')
         print('open_mouth_smile_score', open_mouth_smile_score)
 
         snarl_score = self._calculate_SB_snarl_score(results_by_expression)
@@ -305,8 +310,86 @@ class SessionService:
         else:
             return 5
 
+    def calculate_SB_synkinesis_percentage_score(self, variation_percentage: float) -> int:
+        if not (0 <= variation_percentage <= 100):
+            raise ValueError("Error calculating SB synkinesis percentage score")
+
+        if variation_percentage <= 20:
+            return 0
+        elif variation_percentage <= 40:
+            return 1
+        elif variation_percentage <= 61:
+            return 2
+        else:
+            return 3
+
     def calculate_SB_synkinesis_score(self, results_by_expression):
-        return 0
+        # ao enrugar testa analisar boca
+        _, open_mouth_smile_forehead_wrinkle_var = self._calculate_SB_open_mouth_smile_score(results_by_expression, 'Enrugar testa')
+
+        # ao fechar os olhos, analisar testa e boca
+        _, eyebrows_eyes_closing_var = self._calculate_SB_forehead_wrinkle_score(results_by_expression,
+                                                                                 'Fechar os olhos sem apertar',
+                                                                                 'Repouso')
+        _, open_mouth_smile_eyes_closure_var = self._calculate_SB_open_mouth_smile_score(results_by_expression, 'Fechar os olhos sem apertar')
+
+        # ao sorrir, analisar testa e olhos
+        _, eyebrows_smile_var = self._calculate_SB_forehead_wrinkle_score(results_by_expression,
+                                                                          'Sorrir mostrando os dentes', 'Repouso')
+        _, gentle_eye_closure_smile_var = self._calculate_SB_gentle_eye_closure_score(results_by_expression,
+                                                                                      'Sorrir mostrando os dentes',
+                                                                                      'Repouso')
+
+        # ao elevar o labio superior, analisar olhos
+        _, gentle_eye_closure_snarl_var = self._calculate_SB_gentle_eye_closure_score(results_by_expression,
+                                                                                      'Elevar o lábio superior',
+                                                                                      'Repouso')
+
+        # ao assobiar, analisar testa e olhos
+        _, eyebrows_lip_pucker_var = self._calculate_SB_forehead_wrinkle_score(results_by_expression, 'Assobiar',
+                                                                               'Repouso')
+        _, gentle_eye_closure_lip_pucker_var = self._calculate_SB_gentle_eye_closure_score(results_by_expression,
+                                                                                      'Assobiar',
+                                                                                      'Repouso')
+
+        # # eyebrows synk -> ao fechar os olhos, ao sorrir e ao assobiar
+        # print('eyebrows_eyes_closing_var', eyebrows_eyes_closing_var)
+        # print('eyebrows_smile_var', eyebrows_smile_var)
+        # print('eyebrows_lip_pucker_var', eyebrows_lip_pucker_var)
+        #
+        # # eyes synk -> ao sorrir, ao elevar o labio superior, ao assobiar
+        # print('gentle_eye_closure_smile_var', gentle_eye_closure_smile_var)
+        # print('gentle_eye_closure_snarl_var', gentle_eye_closure_snarl_var)
+        # print('gentle_eye_closure_lip_pucker_var', gentle_eye_closure_lip_pucker_var)
+        #
+        # # mouth synk -> ao enrugar testa, ao fechar os olhos
+        # print('open_mouth_smile_forehead_wrinkle_var', open_mouth_smile_forehead_wrinkle_var)
+        # print('open_mouth_smile_eyes_closure_var', open_mouth_smile_eyes_closure_var)
+
+        forehead_wrinkle_score, _ = self.calculate_SB_synkinesis_percentage_score(open_mouth_smile_forehead_wrinkle_var)
+        print('forehead_wrinkle_score', forehead_wrinkle_score)
+
+        gentle_eye_closure_score, _ = self.calculate_SB_synkinesis_percentage_score(max(eyebrows_eyes_closing_var, open_mouth_smile_eyes_closure_var))
+        print('gentle_eye_closure_score', gentle_eye_closure_score)
+
+        open_mouth_smile_score, _ = self.calculate_SB_synkinesis_percentage_score(max(eyebrows_smile_var, gentle_eye_closure_smile_var))
+        print('open_mouth_smile_score', open_mouth_smile_score)
+
+        snarl_score = self.calculate_SB_synkinesis_percentage_score(gentle_eye_closure_snarl_var)
+        print('snarl_score', snarl_score)
+
+        lip_pucker_score = self.calculate_SB_synkinesis_percentage_score(max(eyebrows_lip_pucker_var, gentle_eye_closure_lip_pucker_var))
+        print('lip_pucker_score', lip_pucker_score)
+
+        if open_mouth_smile_forehead_wrinkle_var <= 20 or open_mouth_smile_eyes_closure_var <= 20:
+            self.synkinesis_mouth = True
+        if gentle_eye_closure_smile_var <= 20 or gentle_eye_closure_snarl_var <= 20 or gentle_eye_closure_lip_pucker_var <= 20:
+            self.synkinesis_eyes = True
+        if eyebrows_eyes_closing_var <= 20 or eyebrows_smile_var <= 20 or eyebrows_lip_pucker_var <= 20:
+            self.synkinesis_eyebrows = True
+
+        return forehead_wrinkle_score + gentle_eye_closure_score + open_mouth_smile_score + snarl_score + lip_pucker_score
+
 
     def _calculate_distance_between_expression_pts(self, results_by_expression, expressions, left_pt, right_pt):
         results = []
@@ -430,41 +513,59 @@ class SessionService:
 
         return results
 
-    def _calculate_SB_forehead_wrinkle_score(self, results_by_expression):
-        eyebrows_mid_pts_rest = self._get_eyebrow_mid_pt(results_by_expression, 'Repouso')
-        eyebrows_mid_pts_forehead_w = self._get_eyebrow_mid_pt(results_by_expression, 'Enrugar testa')
-        left_distance = self._calculate_distance_pixels(eyebrows_mid_pts_rest[0], eyebrows_mid_pts_forehead_w[0])
-        right_distance = self._calculate_distance_pixels(eyebrows_mid_pts_rest[1], eyebrows_mid_pts_forehead_w[1])
-
-        paralyzed_side_distance = left_distance if self.paralyzed_side == 'left' else right_distance
-        normal_side_distance = right_distance if self.paralyzed_side == 'left' else left_distance
-        perc_variation = abs(
-            normal_side_distance - paralyzed_side_distance) / normal_side_distance * 100
-        # print('eyebrows_mid_pts_rest', eyebrows_mid_pts_rest)
-        # print('eyebrows_mid_pts_forehead_w', eyebrows_mid_pts_forehead_w)
+    # exp2 qd existir deve ser 'Repouso'
+    def _calculate_SB_forehead_wrinkle_score(self, results_by_expression, expression1, expression2=None):
+        if expression2:
+            eyebrows_mid_pts_expression1 = self._get_eyebrow_mid_pt(results_by_expression, expression1)  # rest
+            eyebrows_mid_pts_expression2 = self._get_eyebrow_mid_pt(results_by_expression, expression2)  # eyes closing
+            # print('1a', eyebrows_mid_pts_expression1)
+            # print('1b', eyebrows_mid_pts_expression2)
+            # print('self.paralyzed_side', self.paralyzed_side)
+            y1 = eyebrows_mid_pts_expression1[0][0] if self.paralyzed_side == 'left' else eyebrows_mid_pts_expression1[1][0]
+            y2 = eyebrows_mid_pts_expression2[0][0] if self.paralyzed_side == 'left' else eyebrows_mid_pts_expression2[1][0]
+        else:
+            eyebrows_mid_pts_expression1 = self._get_eyebrow_mid_pt(results_by_expression, expression1)
+            # print('2a', eyebrows_mid_pts_expression1)
+            # print('self.paralyzed_side', self.paralyzed_side)
+            y1 = eyebrows_mid_pts_expression1[0][0]
+            y2 = eyebrows_mid_pts_expression1[1][0]
+        # print(y1, y2)
+        perc_variation = abs(((y2 - y1) / y1) * 100)
         # print('perc_variation', perc_variation)
+        return self.calculate_SB_movement_percentage_score(perc_variation), perc_variation
 
-        return self.calculate_SB_movement_percentage_score(perc_variation)
-
-    def _calculate_SB_gentle_eye_closure_score(self, results_by_expression):
-        distances_eyes = self._calculate_distance_from_expression_pts(
+    # exp2 qd existir deve ser 'Repouso'
+    def _calculate_SB_gentle_eye_closure_score(self, results_by_expression, expression1, expression2=None):
+        distances_eyes_expression1 = self._calculate_distance_from_expression_pts(
             results_by_expression,
-            ['Fechar os olhos sem apertar'],
+            [expression1],
             self.left_eye_open_pts,
             self.right_eye_open_pts,
         )
-        paralyzed_side_distance_eyes = distances_eyes[0 if self.paralyzed_side == 'left' else 1]
-        normal_side_distance_eyes = distances_eyes[1 if self.paralyzed_side == 'left' else 0]
+
+        paralyzed_side_distance_eyes = distances_eyes_expression1[0 if self.paralyzed_side == 'left' else 1]
+        normal_side_distance_eyes = distances_eyes_expression1[1 if self.paralyzed_side == 'left' else 0]
+
+        if expression2:
+            distances_eyes_expression2 = self._calculate_distance_from_expression_pts(
+                results_by_expression,
+                [expression2],
+                self.left_eye_open_pts,
+                self.right_eye_open_pts,
+            )
+            normal_side_distance_eyes = distances_eyes_expression2[1 if self.paralyzed_side == 'left' else 0]
+
         perc_variation_eyes = abs(
             normal_side_distance_eyes - paralyzed_side_distance_eyes) / normal_side_distance_eyes * 100
+
         # print('distances_eyes', distances_eyes)
         # print('perc_variation_eyes', perc_variation_eyes)
-        return self.calculate_SB_movement_percentage_score(perc_variation_eyes)
+        return self.calculate_SB_movement_percentage_score(perc_variation_eyes), perc_variation_eyes
 
-    def _calculate_SB_open_mouth_smile_score(self, results_by_expression):
+    def _calculate_SB_open_mouth_smile_score(self, results_by_expression, expression):
         distances_mouth = self._calculate_distance_between_expression_pts(
             results_by_expression,
-            ['Repouso', 'Sorrir mostrando os dentes'],
+            ['Repouso', expression],
             self.left_mouth_end_pt,
             self.right_mouth_end_pt
         )
@@ -475,7 +576,7 @@ class SessionService:
         # print('distances_eyes', distances_eyes)
         # print('perc_variation_eyes', perc_variation_eyes)
 
-        return self.calculate_SB_movement_percentage_score(perc_variation)
+        return self.calculate_SB_movement_percentage_score(perc_variation), perc_variation
 
     def _calculate_SB_snarl_score(self, results_by_expression):
         distances = self._calculate_distance_between_expression_pts(
