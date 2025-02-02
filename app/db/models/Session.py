@@ -11,11 +11,14 @@ class ProcessSessionPayload(BaseModel):
 class SessionResult(BaseModel):
     session_id: int
     house_brackmann: str
-    sunnybrook: str
-    eyes_simetry: int
-    eyebrows_simetry: int
-    mouth_simetry: int
-    chin_simetry: int
+    sunnybrook: int
+    hb_eyes_simetry: int
+    hb_mouth_simetry: int
+    sb_forehead_wrinkle_simetry: int
+    sb_gentle_eye_closure_simetry: int
+    sb_smile_simetry: int
+    sb_snarl_simetry: int
+    sb_lip_pucker_simetry: int
     eyes_synkinesis: bool
     eyebrows_synkinesis: bool
     mouth_synkinesis: bool
