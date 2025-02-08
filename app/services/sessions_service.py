@@ -99,6 +99,38 @@ class SessionService:
         cursor.close()
         return result
 
+    def end_session(self, session_id, house_brackmann, sunnybrook):
+        cursor = self.connection.cursor()
+        try:
+            query = """
+                    INSERT INTO results (
+                        session_id, house_brackmann, sunnybrook, hb_eyes_simetry, hb_mouth_simetry,
+                        sb_forehead_wrinkle_simetry, sb_gentle_eye_closure_simetry, sb_smile_simetry,
+                        sb_snarl_simetry, sb_lip_pucker_simetry, eyes_synkinesis, eyebrows_synkinesis,
+                        mouth_synkinesis, mouth_synkinesis_by_raising_eyebrows, eyebrows_synkinesis_by_closing_eyes,
+                        mouth_synkinesis_by_closing_eyes, eyebrows_synkinesis_by_smiling, eyes_synkinesis_by_smiling,
+                        eyes_synkinesis_by_snarl, eyebrows_synkinesis_by_lip_pucker, eyes_synkinesis_by_lip_pucker
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+
+            values = (session_id, house_brackmann, sunnybrook, self.hb_eyes_simetry, self.hb_mouth_simetry,
+                      self.sb_forehead_wrinkle_simetry, self.sb_gentle_eye_closure_simetry, self.sb_smile_simetry,
+                      self.sb_snarl_simetry, self.sb_lip_pucker_simetry, self.synkinesis_eyes, self.synkinesis_eyebrows,
+                      self.synkinesis_mouth, self.mouth_synkinesis_by_raising_eyebrows,
+                      self.eyebrows_synkinesis_by_closing_eyes,
+                      self.mouth_synkinesis_by_closing_eyes, self.eyebrows_synkinesis_by_smiling,
+                      self.eyes_synkinesis_by_smiling,
+                      self.eyes_synkinesis_by_snarl, self.eyebrows_synkinesis_by_lip_pucker,
+                      self.eyes_synkinesis_by_lip_pucker)
+            cursor.execute(query, values)
+            self.connection.commit()
+            return
+        except Exception as e:
+            self.connection.rollback()
+            raise e
+        finally:
+            cursor.close()
+
     def get_session_images(self, session_id: int):
         cursor = self.connection.cursor(dictionary=True)
         cursor.execute("select photo_id, facial_expression from photos as p where p.session_id = %s and p.with_points = FALSE", (session_id,))
@@ -120,6 +152,7 @@ class SessionService:
             if base64_image:
                 imagesB64.append("data:image/jpeg;base64," + base64_image)
 
+        self.end_session(session_id, house_brackmann_score, sunnybrook_score)
         return SessionResult(
             session_id=session_id,
             house_brackmann=house_brackmann_score,

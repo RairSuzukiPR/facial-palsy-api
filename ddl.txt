@@ -34,17 +34,28 @@ CREATE TABLE photos (
 );
 
 CREATE TABLE results (
-    result_id CHAR(36) PRIMARY KEY,
+    result_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     session_id INT NOT NULL,
     house_brackmann TEXT NOT NULL,
     sunnybrook TEXT NOT NULL,
-    eyes_simetry INT NOT NULL,
-    eyebrows_simetry INT NOT NULL,
-    mouth_simetry INT NOT NULL,
-    chin_simetry INT NOT NULL,
+    hb_eyes_simetry INT NOT NULL,
+    hb_mouth_simetry INT NOT NULL,
+    sb_forehead_wrinkle_simetry INT NOT NULL,
+    sb_gentle_eye_closure_simetry INT NOT NULL,
+    sb_smile_simetry INT NOT NULL,
+    sb_snarl_simetry INT NOT NULL,
+    sb_lip_pucker_simetry INT NOT NULL,
     eyes_synkinesis BOOL NOT NULL,
     eyebrows_synkinesis BOOL NOT NULL,
     mouth_synkinesis BOOL NOT NULL,
+    mouth_synkinesis_by_raising_eyebrows BOOL NOT NULL,
+    eyebrows_synkinesis_by_closing_eyes BOOL NOT NULL,
+    mouth_synkinesis_by_closing_eyes BOOL NOT NULL,
+    eyebrows_synkinesis_by_smiling BOOL NOT NULL,
+    eyes_synkinesis_by_smiling BOOL NOT NULL,
+    eyes_synkinesis_by_snarl BOOL NOT NULL,
+    eyebrows_synkinesis_by_lip_pucker BOOL NOT NULL,
+    eyes_synkinesis_by_lip_pucker BOOL NOT NULL,
     processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_results_sessions FOREIGN KEY (session_id) REFERENCES sessions(session_id)
 );
