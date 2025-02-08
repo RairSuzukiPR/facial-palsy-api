@@ -23,9 +23,18 @@ class SessionService:
         self.sb_smile_simetry = -1
         self.sb_snarl_simetry = -1
         self.sb_lip_pucker_simetry = -1
+
         self.synkinesis_eyebrows = False
         self.synkinesis_eyes = False
         self.synkinesis_mouth = False
+        self.mouth_synkinesis_by_raising_eyebrows = False
+        self.eyebrows_synkinesis_by_closing_eyes = False
+        self.mouth_synkinesis_by_closing_eyes = False
+        self.eyebrows_synkinesis_by_smiling = False
+        self.eyes_synkinesis_by_smiling = False
+        self.eyes_synkinesis_by_snarl = False
+        self.eyebrows_synkinesis_by_lip_pucker = False
+        self.eyes_synkinesis_by_lip_pucker = False
 
         self.mid_forhead_pt = 10
         self.right_eyebrow_pts = [70, 63, 105, 66, 107, 46, 53, 52, 65, 55]
@@ -127,6 +136,14 @@ class SessionService:
             eyes_synkinesis=self.synkinesis_eyes,
             eyebrows_synkinesis=self.synkinesis_eyebrows,
             mouth_synkinesis=self.synkinesis_mouth,
+            mouth_synkinesis_by_raising_eyebrows=self.mouth_synkinesis_by_raising_eyebrows,
+            eyebrows_synkinesis_by_closing_eyes=self.eyebrows_synkinesis_by_closing_eyes,
+            mouth_synkinesis_by_closing_eyes=self.mouth_synkinesis_by_closing_eyes,
+            eyebrows_synkinesis_by_smiling=self.eyebrows_synkinesis_by_smiling,
+            eyes_synkinesis_by_smiling=self.eyes_synkinesis_by_smiling,
+            eyes_synkinesis_by_snarl=self.eyes_synkinesis_by_snarl,
+            eyebrows_synkinesis_by_lip_pucker=self.eyebrows_synkinesis_by_lip_pucker,
+            eyes_synkinesis_by_lip_pucker=self.eyes_synkinesis_by_lip_pucker,
             processed_at=datetime.datetime.now(),
             photos=imagesB64,
             # photos_with_poitns=['TBD'],
@@ -457,13 +474,16 @@ class SessionService:
         # print('open_mouth_smile_forehead_wrinkle_var', open_mouth_smile_forehead_wrinkle_var)
         forehead_wrinkle_score = self.calculate_SB_synkinesis_percentage_score(open_mouth_smile_forehead_wrinkle_var)
         # print('->forehead_wrinkle_score', forehead_wrinkle_score)
+        self.mouth_synkinesis_by_raising_eyebrows = True if open_mouth_smile_forehead_wrinkle_var > 20 else False
 
         # ao fechar os olhos, analisar testa e boca
         _, eyebrows_eyes_closing_var = self._calculate_SB_forehead_wrinkle_score(results_by_expression,
                                                                                  'Fechar os olhos sem apertar',
                                                                                  'Repouso')
+        self.eyebrows_synkinesis_by_closing_eyes = True if eyebrows_eyes_closing_var > 20 else False
         # print('eyebrows_eyes_closing_var', eyebrows_eyes_closing_var)
         _, open_mouth_smile_eyes_closure_var = self._calculate_SB_open_mouth_smile_score(results_by_expression, 'Fechar os olhos sem apertar')
+        self.mouth_synkinesis_by_closing_eyes = True if open_mouth_smile_eyes_closure_var > 20 else False
         # print('open_mouth_smile_eyes_closure_var', open_mouth_smile_eyes_closure_var)
         gentle_eye_closure_score = self.calculate_SB_synkinesis_percentage_score(max(eyebrows_eyes_closing_var, open_mouth_smile_eyes_closure_var))
         # print('->gentle_eye_closure_score', gentle_eye_closure_score)
@@ -471,10 +491,12 @@ class SessionService:
         # ao sorrir, analisar testa e olhos
         _, eyebrows_smile_var = self._calculate_SB_forehead_wrinkle_score(results_by_expression,
                                                                           'Sorrir mostrando os dentes', 'Repouso')
+        self.eyebrows_synkinesis_by_smiling = True if eyebrows_smile_var > 20 else False
         # print('eyebrows_smile_var', eyebrows_smile_var)
         _, gentle_eye_closure_smile_var = self._calculate_SB_gentle_eye_closure_score(results_by_expression,
                                                                                       'Sorrir mostrando os dentes',
                                                                                       'Repouso')
+        self.eyes_synkinesis_by_smiling = True if gentle_eye_closure_smile_var > 20 else False
         # print('gentle_eye_closure_smile_var', gentle_eye_closure_smile_var)
         open_mouth_smile_score = self.calculate_SB_synkinesis_percentage_score(max(eyebrows_smile_var, gentle_eye_closure_smile_var))
         # print('->open_mouth_smile_score', open_mouth_smile_score)
@@ -483,6 +505,7 @@ class SessionService:
         _, gentle_eye_closure_snarl_var = self._calculate_SB_gentle_eye_closure_score(results_by_expression,
                                                                                       'Elevar o lábio superior',
                                                                                       'Repouso')
+        self.eyes_synkinesis_by_snarl = True if gentle_eye_closure_snarl_var > 20 else False
         # print('gentle_eye_closure_snarl_var', gentle_eye_closure_snarl_var)
         snarl_score = self.calculate_SB_synkinesis_percentage_score(gentle_eye_closure_snarl_var)
         # print('->snarl_score', snarl_score)
@@ -490,33 +513,21 @@ class SessionService:
         # ao assobiar, analisar testa e olhos
         _, eyebrows_lip_pucker_var = self._calculate_SB_forehead_wrinkle_score(results_by_expression, 'Assobiar',
                                                                                'Repouso')
+        self.eyebrows_synkinesis_by_lip_pucker = True if eyebrows_lip_pucker_var > 20 else False
         # print('eyebrows_lip_pucker_var', eyebrows_lip_pucker_var)
         _, gentle_eye_closure_lip_pucker_var = self._calculate_SB_gentle_eye_closure_score(results_by_expression,
                                                                                       'Assobiar',
                                                                                       'Repouso')
+        self.eyes_synkinesis_by_lip_pucker = True if gentle_eye_closure_lip_pucker_var > 20 else False
         lip_pucker_score = self.calculate_SB_synkinesis_percentage_score(max(eyebrows_lip_pucker_var, gentle_eye_closure_lip_pucker_var))
         # print('->lip_pucker_score', lip_pucker_score)
 
-        # # eyebrows synk -> ao fechar os olhos, ao sorrir e ao assobiar
-        # print('eyebrows_eyes_closing_var', eyebrows_eyes_closing_var)
-        # print('eyebrows_smile_var', eyebrows_smile_var)
-        # print('eyebrows_lip_pucker_var', eyebrows_lip_pucker_var)
-        #
-        # # eyes synk -> ao sorrir, ao elevar o labio superior, ao assobiar
-        # print('gentle_eye_closure_smile_var', gentle_eye_closure_smile_var)
-        # print('gentle_eye_closure_snarl_var', gentle_eye_closure_snarl_var)
-        # print('gentle_eye_closure_lip_pucker_var', gentle_eye_closure_lip_pucker_var)
-        #
-        # # mouth synk -> ao enrugar testa, ao fechar os olhos
-        # print('open_mouth_smile_forehead_wrinkle_var', open_mouth_smile_forehead_wrinkle_var)
-        # print('open_mouth_smile_eyes_closure_var', open_mouth_smile_eyes_closure_var)
-
-        if open_mouth_smile_forehead_wrinkle_var <= 20 or open_mouth_smile_eyes_closure_var <= 20:
+        if self.mouth_synkinesis_by_raising_eyebrows or self.mouth_synkinesis_by_closing_eyes:
             self.synkinesis_mouth = True
-        if gentle_eye_closure_smile_var <= 20 or gentle_eye_closure_snarl_var <= 20 or gentle_eye_closure_lip_pucker_var <= 20:
-            self.synkinesis_eyes = True
-        if eyebrows_eyes_closing_var <= 20 or eyebrows_smile_var <= 20 or eyebrows_lip_pucker_var <= 20:
+        if self.eyebrows_synkinesis_by_closing_eyes or self.eyebrows_synkinesis_by_smiling or self.eyebrows_synkinesis_by_lip_pucker:
             self.synkinesis_eyebrows = True
+        if self.eyes_synkinesis_by_smiling or self.eyes_synkinesis_by_snarl or self.eyes_synkinesis_by_lip_pucker:
+            self.synkinesis_eyes = True
 
         return forehead_wrinkle_score + gentle_eye_closure_score + open_mouth_smile_score + snarl_score + lip_pucker_score
 

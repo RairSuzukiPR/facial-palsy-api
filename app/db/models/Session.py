@@ -22,5 +22,13 @@ class SessionResult(BaseModel):
     eyes_synkinesis: bool
     eyebrows_synkinesis: bool
     mouth_synkinesis: bool
+    mouth_synkinesis_by_raising_eyebrows: bool
+    eyebrows_synkinesis_by_closing_eyes: bool
+    mouth_synkinesis_by_closing_eyes: bool
+    eyebrows_synkinesis_by_smiling: bool
+    eyes_synkinesis_by_smiling: bool
+    eyes_synkinesis_by_snarl: bool
+    eyebrows_synkinesis_by_lip_pucker: bool
+    eyes_synkinesis_by_lip_pucker: bool
     processed_at: datetime.datetime
     photos: List[str]
