@@ -8,7 +8,7 @@ from PIL import Image
 import io
 import base64
 from app.db.models.Session import SessionResult
-from app.services.images_service import get_face_landmarks_detection
+from app.services.images_service import get_face_landmarks_detection, get_px_pts_from_detection_result
 
 
 class SessionService:
@@ -591,7 +591,7 @@ class SessionService:
                     #         )[0])
                     aux.append(
                         next(iter(
-                            self.get_px_pts_from_detection_result(
+                            get_px_pts_from_detection_result(
                                 [left_pt] if side == 'left' else [right_pt],
                                 mp.Image.create_from_file(data.get('file_path')),
                                 data.get('result')
@@ -615,7 +615,7 @@ class SessionService:
         for side in ['left', 'right']:
             for item in filtered_items:
                 for expression, data in item.items():
-                    expression_data = self.get_px_pts_from_detection_result(
+                    expression_data = get_px_pts_from_detection_result(
                                 left_pts if side == 'left' else right_pts,
                                 mp.Image.create_from_file(data.get('file_path')),
                                 data.get('result')
@@ -636,7 +636,7 @@ class SessionService:
         ]
 
         def get_point_coordinates(point, item):
-            expression_data = next(iter(self.get_px_pts_from_detection_result(
+            expression_data = next(iter(get_px_pts_from_detection_result(
                 [point],
                 mp.Image.create_from_file(item['file_path']),
                 item['result']
@@ -667,7 +667,7 @@ class SessionService:
         for side in ['left', 'right']:
             points_by_expression = [
                 {
-                    expression: self.get_px_pts_from_detection_result(
+                    expression: get_px_pts_from_detection_result(
                         left_pts if side == 'left' else right_pts,
                         mp.Image.create_from_file(data.get('file_path')),
                         data.get('result')
@@ -719,12 +719,12 @@ class SessionService:
                     #     mp.Image.create_from_file(data.get('file_path')),
                     #     data.get('result')
                     # ), 'x', 'lowest'))
-                    results_highest.append(self.lowest_or_highest_coord(self.get_px_pts_from_detection_result(
+                    results_highest.append(self.lowest_or_highest_coord(get_px_pts_from_detection_result(
                         left_pts if side == 'left' else right_pts,
                         mp.Image.create_from_file(data.get('file_path')),
                         data.get('result')
                     ), 'x', 'lowest'))
-                    results_lowest.append(self.lowest_or_highest_coord(self.get_px_pts_from_detection_result(
+                    results_lowest.append(self.lowest_or_highest_coord(get_px_pts_from_detection_result(
                         left_pts if side == 'left' else right_pts,
                         mp.Image.create_from_file(data.get('file_path')),
                         data.get('result')
@@ -906,7 +906,7 @@ class SessionService:
         for side in ['left', 'right']:
             for item in filtered_items:
                 for expression, data in item.items():
-                    expression_data = self.get_px_pts_from_detection_result(
+                    expression_data = get_px_pts_from_detection_result(
                                 left_eyebrow_pts if side == 'left' else right_eyebrow_pts,
                                 mp.Image.create_from_file(data.get('file_path')),
                                 data.get('result')
@@ -920,42 +920,13 @@ class SessionService:
 
         for item in filtered_items:
             for expression, data in item.items():
-                expression_data = self.get_px_pts_from_detection_result(
+                expression_data = get_px_pts_from_detection_result(
                             pts,
                             mp.Image.create_from_file(data.get('file_path')),
                             data.get('result')
                         )
                 results.append(next(iter(expression_data[0].values())))
         return results
-
-    def _normalized_to_pixel_coordinates(self,
-            normalized_x: float, normalized_y: float, image_width: int,
-            image_height: int) -> Union[None, Tuple[int, int]]:
-        """Converts normalized value pair to pixel coordinates."""
-
-        def is_valid_normalized_value(value: float) -> bool:
-            return (value > 0 or math.isclose(0, value)) and (value < 1 or
-                                                              math.isclose(1, value))
-
-        if not (is_valid_normalized_value(normalized_x) and
-                is_valid_normalized_value(normalized_y)):
-            return None
-
-        x_px = min(math.floor(normalized_x * image_width), image_width - 1)
-        y_px = min(math.floor(normalized_y * image_height), image_height - 1)
-        return x_px, y_px
-
-    def get_px_pts_from_detection_result(self, facelandmark_pts, image, detection_result):
-        pts = []
-        image_rows, image_cols, _ = image.numpy_view().shape
-
-        for idx2, landmark in enumerate(detection_result.face_landmarks[0]):
-            if idx2 in facelandmark_pts:
-                # print('->', idx2, self._normalized_to_pixel_coordinates(landmark.x, landmark.y, image_cols, image_rows))
-                pts.append({
-                    idx2: self._normalized_to_pixel_coordinates(landmark.x, landmark.y, image_cols, image_rows)
-                })
-        return pts
 
     def _calculate_distance_pixels(self, pt1, pt2, type: Literal["euclidian", "horizontal", "vertical"] = "euclidian") -> float:
         x1, y1 = pt1
