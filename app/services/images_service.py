@@ -138,8 +138,8 @@ class ImagesService:
 
         return [higher_horiz[1], higher_vert[1], lower_horiz[1], lower_vert[1]]
 
-    def crop_face_image(self, coordinates: List[Tuple[int, int]], file_path: str, offset_x_pct: float = 0.15,
-                        offset_y_pct: float = 0.15) -> None:
+    def crop_face_image(self, coordinates: List[Tuple[int, int]], file_path: str, offset_x_pct: float = 0.2,
+                        offset_y_pct: float = 0.2) -> None:
         if len(coordinates) != 4:
             raise ValueError("O array de coordenadas deve conter exatamente 4 pontos.")
 
