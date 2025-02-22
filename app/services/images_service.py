@@ -66,6 +66,7 @@ class ImagesService:
         self.face_border_pts = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 401, 361, 288, 397, 365, 379, 378, 400,
                                 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 45, 103, 67,
                                 109]
+        self.external_eye_pts = [263, 33]
 
     def classify_image(self, file: UploadFile = File(...)):
         image_uuid = str(uuid.uuid4())
@@ -75,7 +76,7 @@ class ImagesService:
 
         current_directory = os.getcwd()
         file_path = os.path.join(current_directory, f"app/assets/{image_uuid}.jpg")
-        # file_path = os.path.join(current_directory, f"app/assets/$2aaa.jpg")
+
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         self._pre_process_image(file_path)
@@ -90,7 +91,7 @@ class ImagesService:
 
         # image_base64 = "data:image/jpeg;base64," + base64.b64encode(encoded_image).decode('utf-8')
         file_path_with_points = os.path.join(current_directory, f"app/assets/${image_with_points_uuid}.jpg")
-        # file_path_with_points = os.path.join(current_directory, f"app/assets/$2bbb.jpg")
+
         encoded_image_buffer = io.BytesIO(encoded_image.tobytes())
         with open(file_path_with_points, "wb") as buffer:
             shutil.copyfileobj(encoded_image_buffer, buffer)
@@ -120,13 +121,43 @@ class ImagesService:
             cursor.close()
 
     def _pre_process_image(self, file_path):
-        all_pts = get_px_pts_from_detection_result(
+        mp_file = mp.Image.create_from_file(file_path)
+        detection_result = get_face_landmarks_detection(file_path)
+
+        face_pts = get_px_pts_from_detection_result(
             self.face_border_pts,
-            mp.Image.create_from_file(file_path),
-            get_face_landmarks_detection(file_path)
+            mp_file,
+            detection_result
         )
-        # print(self._get_face_limits(all_pts))
-        self.crop_face_image(self._get_face_limits(all_pts), file_path)
+        eyes_pts = get_px_pts_from_detection_result(
+            self.external_eye_pts,
+            mp_file,
+            detection_result
+        )
+
+        self._rotate_image(file_path, eyes_pts)
+        self.crop_face_image(self._get_face_limits(face_pts), file_path)
+
+
+    def _rotate_image(self, image_path, eyes_pts):
+        keypoints = {key: value for point in eyes_pts for key, value in point.items()}
+        left_eye = keypoints[self.external_eye_pts[0]]
+        right_eye = keypoints[self.external_eye_pts[1]]
+        angle = self._calculate_rotation_angle(left_eye, right_eye)
+
+        with Image.open(image_path) as img:
+            rotated_img = img.rotate(-angle, resample=Image.BICUBIC, expand=True)
+
+            if rotated_img.height > rotated_img.width:
+                rotated_img = rotated_img.transpose(Image.ROTATE_90)
+
+            rotated_img.save(image_path)
+
+    def _calculate_rotation_angle(self, left_eye, right_eye):
+        dx = right_eye[0] - left_eye[0]
+        dy = right_eye[1] - left_eye[1]
+        angle = math.degrees(math.atan2(dx, dy))
+        return angle
 
     def _get_face_limits(self, coordinates: List[Dict[int, Tuple[int, int]]]) -> list[tuple[int, int]]:
         keypoints = {key: value for point in coordinates for key, value in point.items()}
@@ -138,8 +169,8 @@ class ImagesService:
 
         return [higher_horiz[1], higher_vert[1], lower_horiz[1], lower_vert[1]]
 
-    def crop_face_image(self, coordinates: List[Tuple[int, int]], file_path: str, offset_x_pct: float = 0.2,
-                        offset_y_pct: float = 0.2) -> None:
+    def crop_face_image(self, coordinates: List[Tuple[int, int]], file_path: str, offset_x_pct: float = 0.22,
+                        offset_y_pct: float = 0.22) -> None:
         if len(coordinates) != 4:
             raise ValueError("O array de coordenadas deve conter exatamente 4 pontos.")
 
